@@ -28,7 +28,7 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-// 슬립 리스트 ******************************
+// 새로 구현한 것; 블락된 쓰레드들을 위한 쓰레드
 static struct list sleep_list;
 
 /* Idle thread. */
@@ -65,6 +65,12 @@ static void init_thread(struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
+static bool cmp_wakeup_tick(const struct list_elem *a,
+							const struct list_elem *b,
+							void *aux);
+
+// P1: 글로벌 틱
+static int64_t next_tick_to_awake;
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -109,7 +115,7 @@ void thread_init(void)
 	/* Init the global thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
-	list_init(&sleep_list); // 슬립리스트 초기화
+	list_init(&sleep_list); // P1: 슬립리스트 초기화
 	list_init(&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -249,22 +255,51 @@ void thread_unblock(struct thread *t)
 	intr_set_level(old_level);
 }
 
-// 피피티 16장  todo
-// https://poalim.tistory.com/28
-// 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음 (이미 메소드가 있음 )
+// 구현한 것; 리스트 원소의 wakeup_tick값을 비교하기
+static bool cmp_wakeup_tick(const struct list_elem *a,
+							const struct list_elem *b,
+							void *aux)
+{
+	int64_t a_wakeup_t = list_entry(a, struct thread, elem)->wakeup_tick;
+	int64_t b_wakeup_t = list_entry(b, struct thread, elem)->wakeup_tick;
+	return (a_wakeup_t < b_wakeup_t);
+}
+
+// P1: global tick 저장하기
+void update_next_tick_to_awake(int64_t ticks)
+{
+	next_tick_to_awake = ticks;
+}
+
+// P2: global tick 저장하기
+int64_t get_next_tick_to_awake(void)
+{
+	return next_tick_to_awake;
+}
+
+// P1: 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음
+// 참고: https://poalim.tistory.com/28
 void thread_sleep(int64_t ticks)
 {
 	struct thread *cur;
 	enum intr_level old_level;
 
-	old_level = intr_disable(); // 인터럽트 off (지금 스레드 고정시키려고)
+	old_level = intr_disable(); // 인터럽트 off → 지금 스레드 고정
 	cur = thread_current();		// 현재 스레드
 
-	ASSERT(cur != idle_thread); //
+	ASSERT(cur != idle_thread); // idle 쓰레드가 아닌 것을 확인하기
 
-	cur->wakeup_tick = ticks;				 // 일어날 시간을 저장
-	list_push_back(&sleep_list, &cur->elem); // sleep_list 맨 뒤에 추가
-	thread_block();							 // block 상태로 변경
+	cur->wakeup_tick = ticks; // 일어날 시간; local tick
+
+	// P1: 쓰레드가 제 자리 찾아서 들어가게
+	list_insert_ordered(&sleep_list, &cur->elem, cmp_wakeup_tick, NULL);
+
+	// ###IMPR### P1: 최소 wakeup_tick 찾기
+	struct list_elem *e = list_begin(&sleep_list);
+	struct thread *t = list_entry(e, struct thread, elem);
+	update_next_tick_to_awake(t->wakeup_tick);
+
+	thread_block(); // block 상태로 변경
 
 	intr_set_level(old_level); // 인터럽트 on
 
@@ -276,9 +311,8 @@ void thread_sleep(int64_t ticks)
 	/* When you manipulate thread list, disable interrupt! */
 }
 
-// todo
-// 일어날 쓰레드를 깨워서 슬립큐에서 제거하고 레디큐에 넣기 (이미 메소드가 있음 )
-// https://poalim.tistory.com/28
+// P1: 일어날 쓰레드를 깨워서 슬립큐에서 제거하고 레디큐에 넣기
+// 참고: https://poalim.tistory.com/28
 void thread_wakeup(int64_t ticks)
 {
 	// For the threads to wake up, remove them from the sleep queue and insert it
@@ -287,18 +321,21 @@ void thread_wakeup(int64_t ticks)
 
 	struct list_elem *e = list_begin(&sleep_list);
 
-	while (e != list_end(&sleep_list))
+	while (e != list_end(&sleep_list)) // 슬립 리스트의 마지막 원소에 도달할때까지
 	{
 		struct thread *t = list_entry(e, struct thread, elem);
-		if (t->wakeup_tick <= ticks)
-		{						// 스레드가 일어날 시간이 되었는지 확인
+
+		if (t->wakeup_tick <= ticks) // 스레드가 일어날 시간이 되었는지 확인
+		{
 			e = list_remove(e); // sleep list 에서 제거
 			thread_unblock(t);	// 스레드 unblock
 		}
-		else
-			e = list_next(e);
+		else // 깨울 시간이 되지 않은 쓰레드 발견 
+			update_next_tick_to_awake(t->wakeup_tick);
+			break;
 	}
 }
+
 
 /* Returns the name of the running thread. */
 const char *
@@ -307,11 +344,10 @@ thread_name(void)
 	return thread_current()->name;
 }
 
-/* Returns the running thread.
+/* Returns the running thread 포인터.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
-struct thread *
-thread_current(void)
+struct thread *thread_current(void)
 {
 	struct thread *t = running_thread();
 
@@ -351,7 +387,7 @@ void thread_exit(void)
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim.
-   현재 실행중인 쓰레드가 CPU 반납하고, 자기는 레디큐로 들어감 (블락아님)
+   현재 실행중인 쓰레드가 CPU 사용을 중지하고, 다시 레디 큐로 들어감 (블락아님)
    */
 void thread_yield(void)
 {
@@ -361,7 +397,7 @@ void thread_yield(void)
 	ASSERT(!intr_context());
 
 	// 락이랑 비슷함. 인터럽트 안 받겠다는 거
-	old_level = intr_disable();
+	old_level = intr_disable(); // 인터럽트 off
 	if (curr != idle_thread)
 		list_push_back(&ready_list, &curr->elem);
 	do_schedule(THREAD_READY); // 지금 실행중인 자기가 레디큐로 들어가고, 자기 상태를 바꿈
@@ -608,7 +644,7 @@ do_schedule(int status)
 		palloc_free_page(victim);
 	}
 	thread_current()->status = status;
-	schedule();
+	schedule(); // 문맥 전환
 }
 
 // 다음 스케줄링 실행
