@@ -69,7 +69,7 @@ static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
 							void *aux);
 
-// P1: 글로벌 틱
+// P1: 슬립 리스트의 쓰레드가 가진 가장 작은 틱 
 static int64_t next_tick_to_awake;
 
 /* Returns true if T appears to point to a valid thread. */
@@ -255,7 +255,7 @@ void thread_unblock(struct thread *t)
 	intr_set_level(old_level);
 }
 
-// 구현한 것; 리스트 원소의 wakeup_tick값을 비교하기
+// P1: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
 static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
 							void *aux)
@@ -265,13 +265,13 @@ static bool cmp_wakeup_tick(const struct list_elem *a,
 	return (a_wakeup_t < b_wakeup_t);
 }
 
-// P1: global tick 저장하기
+// P1: 주어진 ticks를 global tick으로 저장하기
 void update_next_tick_to_awake(int64_t ticks)
 {
 	next_tick_to_awake = ticks;
 }
 
-// P2: global tick 저장하기
+// P2: global tick 반환하기
 int64_t get_next_tick_to_awake(void)
 {
 	return next_tick_to_awake;
@@ -287,7 +287,7 @@ void thread_sleep(int64_t ticks)
 	old_level = intr_disable(); // 인터럽트 off → 지금 스레드 고정
 	cur = thread_current();		// 현재 스레드
 
-	ASSERT(cur != idle_thread); // idle 쓰레드가 아닌 것을 확인하기
+	ASSERT(cur != idle_thread); 
 
 	cur->wakeup_tick = ticks; // 일어날 시간; local tick
 
@@ -330,7 +330,7 @@ void thread_wakeup(int64_t ticks)
 			e = list_remove(e); // sleep list 에서 제거
 			thread_unblock(t);	// 스레드 unblock
 		}
-		else // 깨울 시간이 되지 않은 쓰레드 발견 
+		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
 			update_next_tick_to_awake(t->wakeup_tick);
 			break;
 	}

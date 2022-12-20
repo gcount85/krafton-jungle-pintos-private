@@ -128,11 +128,12 @@ tid_t thread_create(const char *name, int priority, thread_func *, void *);
 void thread_block(void);
 void thread_unblock(struct thread *);
 
-// P1: 추가한 함수 
+// P1: 추가한 함수
 void thread_sleep(int64_t ticks);
 void thread_wakeup(int64_t ticks);
 void update_next_tick_to_awake(int64_t ticks); 
 int64_t get_next_tick_to_awake(void);
+// P1: 추가한 함수 - 끝 
 
 struct thread *thread_current(void);
 tid_t thread_tid(void);

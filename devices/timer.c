@@ -99,11 +99,11 @@ void timer_sleep(int64_t ticks)
 
 	ASSERT(intr_get_level() == INTR_ON);
 
-	// 비지웨이팅;
+	// 비지웨이팅; 구현 전 기본 코드 
 	// while (timer_elapsed(start) < ticks)
 	// thread_yield();
 
-	// 피피티 14장 복붙
+	// P1: 피피티 14장
 	// 요기 start value 때문에 문제 있을 수 있음; 지금 start랑 괴리 발생 가능
 	if (timer_elapsed(start) < ticks) // start 이후로 경과된 시간 < 틱
 		thread_sleep(start + ticks);  // implement by yourself
