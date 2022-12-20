@@ -17,6 +17,7 @@ void sema_up (struct semaphore *);
 void sema_self_test (void);
 
 /* Lock. */
+// 여기는 굳이 수정할 필요 없고 세마포어만 수정해도 충분 
 struct lock {
 	struct thread *holder;      /* Thread holding lock (for debugging). */
 	struct semaphore semaphore; /* Binary semaphore controlling access. */

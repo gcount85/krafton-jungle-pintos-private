@@ -69,7 +69,7 @@ static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
 							void *aux);
 
-// P1: 슬립 리스트의 쓰레드가 가진 가장 작은 틱 
+// P1 alarm: 슬립 리스트의 쓰레드가 가진 가장 작은 틱
 static int64_t next_tick_to_awake;
 
 /* Returns true if T appears to point to a valid thread. */
@@ -115,7 +115,7 @@ void thread_init(void)
 	/* Init the global thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
-	list_init(&sleep_list); // P1: 슬립리스트 초기화
+	list_init(&sleep_list); // P1 alarm: 슬립리스트 초기화
 	list_init(&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -234,6 +234,16 @@ void thread_block(void)
 	schedule();
 }
 
+// P1 priority: 우선순위 비교 (내림차순 정렬을 위한)
+static bool cmp_priority(const struct list_elem *a,
+						 const struct list_elem *b,
+						 void *aux)
+{
+	int a_priority = list_entry(a, struct thread, elem)->priority;
+	int b_priority = list_entry(b, struct thread, elem)->priority;
+	return (a_priority > b_priority);
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -250,12 +260,14 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+	// list_push_back(&ready_list, &t->elem);
+	// P1 priority: 우선 순위 정렬에 맞춰 리스트에 삽입
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 }
 
-// P1: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
+// P1 alarm: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
 static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
 							void *aux)
@@ -265,19 +277,19 @@ static bool cmp_wakeup_tick(const struct list_elem *a,
 	return (a_wakeup_t < b_wakeup_t);
 }
 
-// P1: 주어진 ticks를 global tick으로 저장하기
+// P1 alarm: 주어진 ticks를 global tick으로 저장하기
 void update_next_tick_to_awake(int64_t ticks)
 {
 	next_tick_to_awake = ticks;
 }
 
-// P2: global tick 반환하기
+// P1 alarm: global tick 반환하기
 int64_t get_next_tick_to_awake(void)
 {
 	return next_tick_to_awake;
 }
 
-// P1: 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음
+// P1 alarm: 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음
 // 참고: https://poalim.tistory.com/28
 void thread_sleep(int64_t ticks)
 {
@@ -287,11 +299,11 @@ void thread_sleep(int64_t ticks)
 	old_level = intr_disable(); // 인터럽트 off → 지금 스레드 고정
 	cur = thread_current();		// 현재 스레드
 
-	ASSERT(cur != idle_thread); 
+	ASSERT(cur != idle_thread);
 
 	cur->wakeup_tick = ticks; // 일어날 시간; local tick
 
-	// P1: 쓰레드가 제 자리 찾아서 들어가게
+	// P1 alarm: 쓰레드가 정렬된 순서로 리스트 안에 위치하도록
 	list_insert_ordered(&sleep_list, &cur->elem, cmp_wakeup_tick, NULL);
 
 	// ###IMPR### P1: 최소 wakeup_tick 찾기
@@ -311,7 +323,7 @@ void thread_sleep(int64_t ticks)
 	/* When you manipulate thread list, disable interrupt! */
 }
 
-// P1: 일어날 쓰레드를 깨워서 슬립큐에서 제거하고 레디큐에 넣기
+// P1 alarm: 일어날 쓰레드를 깨워서 슬립큐에서 제거하고 레디큐에 넣기
 // 참고: https://poalim.tistory.com/28
 void thread_wakeup(int64_t ticks)
 {
@@ -332,10 +344,9 @@ void thread_wakeup(int64_t ticks)
 		}
 		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
 			update_next_tick_to_awake(t->wakeup_tick);
-			break;
+		break;
 	}
 }
-
 
 /* Returns the name of the running thread. */
 const char *
@@ -399,12 +410,15 @@ void thread_yield(void)
 	// 락이랑 비슷함. 인터럽트 안 받겠다는 거
 	old_level = intr_disable(); // 인터럽트 off
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		// list_push_back(&ready_list, &curr->elem);
+		// P1 priority: 우선순위 정렬에 맞춰 리스트에 삽입
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
 	do_schedule(THREAD_READY); // 지금 실행중인 자기가 레디큐로 들어가고, 자기 상태를 바꿈
 	intr_set_level(old_level); // 인터럽트 다시 받겠다
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+// P2 Priority TODO: 도네이션을 고려하여 우선순위 지정 
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
@@ -498,7 +512,8 @@ kernel_thread(thread_func *function, void *aux)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
-static void
+// P2 priority TODO: priority donation을 위한 자료구조를 초기화하라 
+static void 
 init_thread(struct thread *t, const char *name, int priority)
 {
 	ASSERT(t != NULL);
