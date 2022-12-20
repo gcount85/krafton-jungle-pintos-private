@@ -91,21 +91,22 @@ timer_elapsed(int64_t then)
 	return timer_ticks() - then;
 }
 
-/* Suspends execution for approximately TICKS timer ticks. */
+/* Suspends execution for approximately TICKS timer ticks.
+ */
 void timer_sleep(int64_t ticks)
 {
 	int64_t start = timer_ticks();
 
 	ASSERT(intr_get_level() == INTR_ON);
 
-	// 비지웨이팅; 요기 start value 때문에 문제 있을 수 있음;
-	// 지금 start랑 괴리 발생 가능
+	// 비지웨이팅;
 	// while (timer_elapsed(start) < ticks)
-	// 	thread_yield();
+	// thread_yield();
 
 	// 피피티 14장 복붙
-	if (timer_elapsed(start) < ticks)
-		thread_sleep(start + ticks); // implement by yourself
+	// 요기 start value 때문에 문제 있을 수 있음; 지금 start랑 괴리 발생 가능
+	if (timer_elapsed(start) < ticks) // start 이후로 경과된 시간 < 틱
+		thread_sleep(start + ticks);  // implement by yourself
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -132,20 +133,26 @@ void timer_print_stats(void)
 	printf("Timer: %" PRId64 " ticks\n", timer_ticks());
 }
 
-/* Timer interrupt handler.
-얘는 시간(틱)을 증가시킴 */
+/* todoTimer interrupt handler. */
 static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
+	int64_t next_tick_to_awake;
+	next_tick_to_awake = get_next_tick_to_awake();
+
 	ticks++;
-	thread_tick();		 // update the cpu usage for running process
-	thread_wakeup(ticks); // ticks 가 증가할때마다 awake 작업 수행
-						 /* code to add:
-					 check sleep list and the global tick.
-					 find any threads to wake up,
-					 move them to the ready list if necessary.
-					 update the global tick.
-					 */
+	thread_tick(); // update the cpu usage for running process
+
+	// P1: 깨울 시간이 되면 wakeup 수행
+	if (next_tick_to_awake > ticks)
+		return;
+	thread_wakeup(ticks); 
+	/* code to add:
+	check sleep list and the global tick.
+	find any threads to wake up,
+	move them to the ready list if necessary.
+	update the global tick.
+	*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
