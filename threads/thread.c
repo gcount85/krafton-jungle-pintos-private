@@ -244,7 +244,7 @@ bool cmp_priority(const struct list_elem *a,
 	int a_priority = list_entry(a, struct thread, elem)->priority;
 	int b_priority = list_entry(b, struct thread, elem)->priority;
 
-	if (a_priority >= b_priority)
+	if (a_priority > b_priority) // 부등호 "=" 넣었다가 fifo 실패 (선입선출!!!)
 		return true;
 	else
 		return false;
@@ -353,6 +353,7 @@ void thread_wakeup(int64_t ticks)
 			thread_unblock(t);	// 스레드 unblock
 		}
 		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
+		// 괄호 때문에 디버깅 났었음  
 		{
 			update_next_tick_to_awake(t->wakeup_tick);
 			break;
