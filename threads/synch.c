@@ -49,8 +49,6 @@ void sema_init(struct semaphore *sema, unsigned value)
 	list_init(&sema->waiters);
 }
 
-
-
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -201,7 +199,8 @@ void lock_init(struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-// P2 priority TODO: 만약 락을 사용할 수 없다면, 락의 주소를 저장해라
+
+// P2 priority: 만약 락을 사용할 수 없다면, 락의 주소를 저장해라
 // 현재의 우선순위를 저장하고, 리스트에 있는 donated threads를 유지해라(멀티플 도네이션)
 // 우선순위를 도네이트해라
 void lock_acquire(struct lock *lock)
@@ -210,8 +209,18 @@ void lock_acquire(struct lock *lock)
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
+	struct thread *curr = thread_current();
+	if (lock->holder)
+	{
+		curr->lock_address = lock;
+		list_insert_ordered(&lock->holder->multiple_donation, &curr->multiple_donation_elem, cmp_donate_priority, 0);
+		donate_priority();
+	}
+
 	sema_down(&lock->semaphore);
-	lock->holder = thread_current();
+
+	curr->lock_address = NULL;
+	lock->holder = curr;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -239,12 +248,17 @@ bool lock_try_acquire(struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
-// P2 Priority TODO: lock이 해제되면, 도네이션 리스트에서 락을 쥐고 있던 애를 제거
+
+// P2 Priority: lock이 해제되면, 도네이션 리스트에서 락을 쥐고 있던 애를 제거
 // 우선순위를 업데이트 해라 제대로.
 void lock_release(struct lock *lock)
 {
+
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
+
+	remove_with_lock(lock);
+	refresh_priority();
 
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);
@@ -309,11 +323,10 @@ bool cmp_sem_priority(const struct list_elem *a,
 {
 	struct list *a_sema_waiters = &list_entry(a, struct semaphore_elem, elem)->semaphore.waiters;
 	struct list *b_sema_waiters = &list_entry(b, struct semaphore_elem, elem)->semaphore.waiters;
-	return (list_entry(list_begin(a_sema_waiters), struct thread, elem)->priority 
-	> list_entry(list_begin(b_sema_waiters), struct thread, elem)->priority);
+	return (list_entry(list_begin(a_sema_waiters), struct thread, elem)->priority > list_entry(list_begin(b_sema_waiters), struct thread, elem)->priority);
 }
 
-// P1 priority TODO: condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정
+// P1 priority: condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정
 // 프로세스가 이걸 호출하면, 프로세스는 블락되고, cond var에 의한 시그널을 기다림
 void cond_wait(struct condition *cond, struct lock *lock)
 {
@@ -340,7 +353,8 @@ void cond_wait(struct condition *cond, struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
-// P1 priority todo: 우선순위대로 waiter를 정렬
+
+// P1 priority: 우선순위대로 waiter를 정렬
 // 컨디션 버라이블에서 기다리고 있는 가장 높은 우선순위를 가진 쓰레드에게 시그널 보냄
 void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 {

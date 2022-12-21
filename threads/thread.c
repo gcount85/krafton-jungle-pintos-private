@@ -249,8 +249,6 @@ bool cmp_priority(const struct list_elem *a,
 	else
 		return false;
 
-	// 원래 코드
-	// return (a_priority > b_priority);
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -353,7 +351,7 @@ void thread_wakeup(int64_t ticks)
 			thread_unblock(t);	// 스레드 unblock
 		}
 		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
-		// 괄호 때문에 디버깅 났었음  
+		// 괄호 때문에 디버깅 났었음
 		{
 			update_next_tick_to_awake(t->wakeup_tick);
 			break;
@@ -450,12 +448,16 @@ void test_max_priority(void)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-// P2 Priority TODO: 도네이션을 고려하여 우선순위 지정
+// P2 Priority: 도네이션을 고려하여 우선순위 지정
 void thread_set_priority(int new_priority)
 {
-	struct thread *cur = thread_current();
-	cur->priority = new_priority;
-	test_max_priority();
+	// struct thread *cur = thread_current();
+	// cur->priority = new_priority;
+	// test_max_priority();
+
+	thread_current()->origin_priority = new_priority;
+	refresh_priority();
+	thread_priority_preemption();
 }
 
 /* Returns the current thread's priority. */
@@ -547,7 +549,7 @@ kernel_thread(thread_func *function, void *aux)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 // 쓰레드 초기화: block 상태
-// P2 priority TODO: priority donation을 위한 자료구조를 초기화하라
+// P2 priority: priority donation을 위한 자료구조를 초기화하라
 static void
 init_thread(struct thread *t, const char *name, int priority)
 {
@@ -561,6 +563,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	t->origin_priority = priority;
+	t->lock_address = NULL;
+	list_init(&t->multiple_donation);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -751,4 +757,57 @@ allocate_tid(void)
 	lock_release(&tid_lock);
 
 	return tid;
+}
+
+/* donate */
+void thread_priority_preemption(void)
+{
+	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+		thread_yield();
+}
+
+
+bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+	return list_entry(a, struct thread, multiple_donation_elem)->priority > list_entry(b, struct thread, multiple_donation_elem)->priority;
+}
+
+void donate_priority(void)
+{
+	int depth;
+	struct thread *curr = thread_current();
+	for (depth = 0; depth < 8; depth++)
+	{
+		if (!curr->lock_address)
+			break;
+		struct thread *holder = curr->lock_address->holder;
+		holder->priority = curr->priority;
+		curr = holder;
+	}
+}
+
+void refresh_priority(void)
+{
+	struct thread *curr = thread_current();
+	curr->priority = curr->origin_priority;
+	if (!list_empty(&curr->multiple_donation))
+	{
+		list_sort(&curr->multiple_donation, cmp_donate_priority, 0);
+		struct thread *prime = list_entry(list_front(&curr->multiple_donation), struct thread, multiple_donation_elem);
+		if (curr->priority < prime->priority)
+			curr->priority = prime->priority;
+	}
+}
+
+void remove_with_lock(struct lock *lock)
+{
+	struct list_elem *e;
+	struct thread *curr = thread_current();
+
+	for (e = list_begin(&curr->multiple_donation); e != list_end(&curr->multiple_donation); e = list_next(e))
+	{
+		struct thread *t = list_entry(e, struct thread, multiple_donation_elem);
+		if (t->lock_address == lock)
+			list_remove(&t->multiple_donation_elem);
+	}
 }

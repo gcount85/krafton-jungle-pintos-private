@@ -94,6 +94,10 @@ struct thread
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   // P1 alarm: 일어나야 하는 시간 /* tick till wake up */
 
+	int origin_priority; /* Priority. */
+	struct lock *lock_address;
+	struct list multiple_donation;
+	struct list_elem multiple_donation_elem;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
@@ -128,16 +132,6 @@ tid_t thread_create(const char *name, int priority, thread_func *, void *);
 void thread_block(void);
 void thread_unblock(struct thread *);
 
-// P1: 추가한 함수
-void thread_sleep(int64_t ticks);
-void thread_wakeup(int64_t ticks);
-void update_next_tick_to_awake(int64_t ticks);
-int64_t get_next_tick_to_awake(void);
-bool cmp_priority(const struct list_elem *a,
-				  const struct list_elem *b,
-				  void *aux);
-// P1: 추가한 함수 - 끝
-
 struct thread *thread_current(void);
 tid_t thread_tid(void);
 const char *thread_name(void);
@@ -154,5 +148,21 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 void do_iret(struct intr_frame *tf);
+
+// P1: 추가한 함수
+void thread_sleep(int64_t ticks);
+void thread_wakeup(int64_t ticks);
+void update_next_tick_to_awake(int64_t ticks);
+int64_t get_next_tick_to_awake(void);
+bool cmp_priority(const struct list_elem *a,
+				  const struct list_elem *b,
+				  void *aux);
+bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
+void donate_priority(void);
+void refresh_priority(void);
+void remove_with_lock(struct lock *lock);
+void thread_priority_preemption(void);
+void test_max_priority(void);
+// P1: 추가한 함수 - 끝
 
 #endif /* threads/thread.h */
