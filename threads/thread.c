@@ -214,10 +214,9 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	
 	/* Add to run queue. */
 	thread_unblock(t);
-	test_max_priority(); // P2 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해 
+	test_max_priority(); // P2 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해
 
 	return tid;
 }
@@ -245,12 +244,10 @@ bool cmp_priority(const struct list_elem *a,
 	int a_priority = list_entry(a, struct thread, elem)->priority;
 	int b_priority = list_entry(b, struct thread, elem)->priority;
 
-	if (a_priority > b_priority)
+	if (a_priority >= b_priority)
 		return true;
-	else if (a_priority < b_priority)
-		return false;
 	else
-		return 2;
+		return false;
 
 	// 원래 코드
 	// return (a_priority > b_priority);
@@ -356,8 +353,10 @@ void thread_wakeup(int64_t ticks)
 			thread_unblock(t);	// 스레드 unblock
 		}
 		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
+		{
 			update_next_tick_to_awake(t->wakeup_tick);
-		break;
+			break;
+		}
 	}
 }
 
@@ -430,7 +429,7 @@ void thread_yield(void)
 	intr_set_level(old_level); // 인터럽트 다시 받겠다
 }
 
-// P2 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링  
+// P2 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
 // ==cmp priority를 쓸건지, 직접 비교할건지?==
 void test_max_priority(void)
 {
@@ -445,8 +444,8 @@ void test_max_priority(void)
 
 	if (cmp_val == true)
 		return;
-	if (cmp_val == false) // 러닝 스레드의 우선순위가 더 낮음
-		thread_yield();
+
+	thread_yield();
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */

@@ -137,14 +137,11 @@ void timer_print_stats(void)
 static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
-	int64_t next_tick_to_awake;
-	next_tick_to_awake = get_next_tick_to_awake();
-
 	ticks++;
 	thread_tick(); // update the cpu usage for running process
 
 	// P1: 깨울 시간이 되면 wakeup 수행
-	if (next_tick_to_awake > ticks)
+	if (get_next_tick_to_awake() > ticks)
 		return;
 	thread_wakeup(ticks); 
 	/* code to add:
