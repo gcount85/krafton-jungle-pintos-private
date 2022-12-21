@@ -214,8 +214,10 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	
 	/* Add to run queue. */
 	thread_unblock(t);
+	test_max_priority(); // P2 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해 
 
 	return tid;
 }
@@ -235,13 +237,23 @@ void thread_block(void)
 }
 
 // P1 priority: 우선순위 비교 (내림차순 정렬을 위한)
-static bool cmp_priority(const struct list_elem *a,
-						 const struct list_elem *b,
-						 void *aux)
+// 우선순위가 같은 경우도 추가함 (return 2)
+bool cmp_priority(const struct list_elem *a,
+				  const struct list_elem *b,
+				  void *aux)
 {
 	int a_priority = list_entry(a, struct thread, elem)->priority;
 	int b_priority = list_entry(b, struct thread, elem)->priority;
-	return (a_priority > b_priority);
+
+	if (a_priority > b_priority)
+		return true;
+	else if (a_priority < b_priority)
+		return false;
+	else
+		return 2;
+
+	// 원래 코드
+	// return (a_priority > b_priority);
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -252,6 +264,7 @@ static bool cmp_priority(const struct list_elem *a,
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+// 쓰레드 상태 전환; 블락 → ready 상태 + ready 리스트에 삽입
 void thread_unblock(struct thread *t)
 {
 	enum intr_level old_level;
@@ -398,8 +411,8 @@ void thread_exit(void)
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim.
-   현재 실행중인 쓰레드가 CPU 사용을 중지하고, 다시 레디 큐로 들어감 (블락아님)
    */
+// 쓰레드 상태 전환; 실행 → ready 상태 + ready 리스트에 삽입
 void thread_yield(void)
 {
 	struct thread *curr = thread_current();
@@ -413,15 +426,36 @@ void thread_yield(void)
 		// list_push_back(&ready_list, &curr->elem);
 		// P1 priority: 우선순위 정렬에 맞춰 리스트에 삽입
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
-	do_schedule(THREAD_READY); // 지금 실행중인 자기가 레디큐로 들어가고, 자기 상태를 바꿈
+	do_schedule(THREAD_READY); // 러닝 스레드가 레디 상태로 바뀌고, 레디 리스트 삽입
 	intr_set_level(old_level); // 인터럽트 다시 받겠다
 }
 
+// P2 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링  
+// ==cmp priority를 쓸건지, 직접 비교할건지?==
+void test_max_priority(void)
+{
+	struct thread *cur = thread_current();
+	struct list_elem *begin = list_begin(&ready_list);
+
+	struct list_elem *cur_elem = &cur->elem;
+	// int begin_priority = list_entry(begin, struct thread, elem)->priority;
+
+	// if (cur->priority > begin_priority)
+	bool cmp_val = cmp_priority(cur_elem, begin, NULL);
+
+	if (cmp_val == true)
+		return;
+	if (cmp_val == false) // 러닝 스레드의 우선순위가 더 낮음
+		thread_yield();
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
-// P2 Priority TODO: 도네이션을 고려하여 우선순위 지정 
+// P2 Priority TODO: 도네이션을 고려하여 우선순위 지정
 void thread_set_priority(int new_priority)
 {
-	thread_current()->priority = new_priority;
+	struct thread *cur = thread_current();
+	cur->priority = new_priority;
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -512,8 +546,9 @@ kernel_thread(thread_func *function, void *aux)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
-// P2 priority TODO: priority donation을 위한 자료구조를 초기화하라 
-static void 
+// 쓰레드 초기화: block 상태
+// P2 priority TODO: priority donation을 위한 자료구조를 초기화하라
+static void
 init_thread(struct thread *t, const char *name, int priority)
 {
 	ASSERT(t != NULL);

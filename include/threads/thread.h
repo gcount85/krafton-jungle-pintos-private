@@ -92,7 +92,7 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
-	int64_t wakeup_tick; 		// 구현한 것; 일어나야 하는 시간 /* tick till wake up */
+	int64_t wakeup_tick;	   // P1 alarm: 일어나야 하는 시간 /* tick till wake up */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
@@ -131,9 +131,12 @@ void thread_unblock(struct thread *);
 // P1: 추가한 함수
 void thread_sleep(int64_t ticks);
 void thread_wakeup(int64_t ticks);
-void update_next_tick_to_awake(int64_t ticks); 
+void update_next_tick_to_awake(int64_t ticks);
 int64_t get_next_tick_to_awake(void);
-// P1: 추가한 함수 - 끝 
+bool cmp_priority(const struct list_elem *a,
+				  const struct list_elem *b,
+				  void *aux);
+// P1: 추가한 함수 - 끝
 
 struct thread *thread_current(void);
 tid_t thread_tid(void);
@@ -151,8 +154,5 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 void do_iret(struct intr_frame *tf);
-
-
-
 
 #endif /* threads/thread.h */

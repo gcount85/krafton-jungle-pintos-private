@@ -57,8 +57,9 @@ void sema_init(struct semaphore *sema, unsigned value)
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. This is
    sema_down function. */ 
-// P1 priority TODO: 세마포어를 요청하고, 세마포어를 얻으면 값을 1 뺌? 못 얻으면 블락
-// 쓰레드가 세마포어를 얻으려고 할 때, waiters 리스트를 우선순위로 정렬하기
+
+// P1 priority TODO: 세마포어를 요청하고, 세마포어를 얻으면 값을 1 빼고, 못 얻으면 블락
+// 쓰레드가 세마포어를 얻으려고 하면, waiters 리스트를 우선순위로 정렬하기
 void sema_down(struct semaphore *sema)
 {
 	enum intr_level old_level;
@@ -67,10 +68,13 @@ void sema_down(struct semaphore *sema)
 	ASSERT(!intr_context());
 
 	old_level = intr_disable(); // cpu 인터럽트 off
+
+	// 세마포어의 value가 0인 경우(공유자원 접근 불가), cur thread를 block
 	while (sema->value == 0)
 	{
-		list_push_back(&sema->waiters, &thread_current()->elem);
-		// list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+		// list_push_back(&sema->waiters, &thread_current()->elem);
+		// 세마포어 대기자 명단에 우선순위에 맞추어 정렬하여 삽입 
+		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
 
 		thread_block();
 	}
