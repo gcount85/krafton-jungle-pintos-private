@@ -191,7 +191,7 @@ tid_t thread_create(const char *name, int priority,
 {
 	struct thread *t;
 	tid_t tid;
-
+ 
 	ASSERT(function != NULL);
 
 	/* Allocate thread. */
@@ -216,7 +216,7 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
-	test_max_priority(); // P2 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해
+	test_max_priority(); // P1 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해
 
 	return tid;
 }
@@ -248,7 +248,6 @@ bool cmp_priority(const struct list_elem *a,
 		return true;
 	else
 		return false;
-
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -765,7 +764,6 @@ void thread_priority_preemption(void)
 	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
 		thread_yield();
 }
-
 
 bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
