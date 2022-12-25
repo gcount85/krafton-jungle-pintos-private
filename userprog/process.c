@@ -18,6 +18,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "threads/malloc.h" // 이거 내가 추가해봄 
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -348,6 +349,28 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	process_activate(thread_current());
 
+	// P2 arg passing: 파일명 파싱
+	// totototodo
+	
+	char *token, *save_ptr;
+	char **parse = calloc(2, sizeof file_name); // 이게 맞는걸까 .. ???
+	int argc = 0;
+
+	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
+		 token = strtok_r(NULL, " ", &save_ptr))
+	{
+		parse[argc] = token;
+		for (int j = 0; j < strlen(token); j++)
+		{
+			parse[argc][j] = token[j];
+		}
+		argc++;
+
+		// printf("'%s'\n", token);
+		// printf("%i\n", argc);
+	}
+	// printf("%s\n", parse[2]);
+
 	/* Open executable file. */
 	file = filesys_open(file_name);
 	if (file == NULL)
@@ -429,8 +452,12 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	/* TODO: Your code goes here.
+	/* P2 arg passing TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	// parse: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
+	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
+	argument_stack(parse, argc, &if_->rsp); // &parse 아니면 parse가 맞는지? 
+	hex_dump(if_->rsp, if_->rsp, LOADER_PHYS_BASE - if_->rsp, true);
 
 	success = true;
 
@@ -662,3 +689,11 @@ setup_stack(struct intr_frame *if_)
 	return success;
 }
 #endif /* VM */
+
+// P2 arg passing: 프로그램 이름과 명령행 인자를 유저 스택에 저장하는 함수
+// parse: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
+// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
+void argument_stack(char **parse, int count, void **rsp)
+{
+	
+}
