@@ -191,7 +191,7 @@ tid_t thread_create(const char *name, int priority,
 {
 	struct thread *t;
 	tid_t tid;
- 
+
 	ASSERT(function != NULL);
 
 	/* Allocate thread. */
@@ -443,7 +443,8 @@ void test_max_priority(void)
 	if (cmp_val == true)
 		return;
 
-	thread_yield();
+	if (!intr_context())
+		thread_yield();
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */

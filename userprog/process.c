@@ -53,12 +53,12 @@ tid_t process_create_initd(const char *file_name)
 
 	// P2: filename 파싱하기 (파싱 예시: ls –a → ls)
 	char *save_ptr;
-	char *thread_name = strtok_r(*file_name, " ", &save_ptr);
+	strtok_r(file_name, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
 	// 인수; 스레드 이름(문자열), 스레드 우선순위,
 	// 생성된 스레드가 실행할 함수 포인터, 그 함수에게 넘겨줄 인수
-	tid = thread_create(thread_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -190,10 +190,7 @@ int process_exec(void *f_name)
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
 	if (!success)
-		thread_exit();
-	// return -1; // 원래코드!!
-
-	// missing parts(?) setting up stack!
+		return -1; // 원래코드!!
 
 	/* Start switched process. */
 	do_iret(&_if);
@@ -206,7 +203,7 @@ int process_exec(void *f_name)
  * child of the calling process, or if process_wait() has already
  * been successfully called for the given TID, returns -1
  * immediately, without waiting.
- *
+ *cd 
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
 int process_wait(tid_t child_tid UNUSED)
@@ -214,6 +211,11 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	// P2 argument passing make check을 위한
+	for (int i = 0; i < 500000000; i++)
+	{
+		;
+	}
 	return -1;
 }
 
@@ -350,19 +352,19 @@ load(const char *file_name, struct intr_frame *if_)
 	process_activate(thread_current());
 
 	// P2 arg passing: 파일명 파싱
-	// totototodo
 	char *token, *save_ptr;
-	char **parse = calloc(2, sizeof file_name); // calloc 사용... 이게 맞는걸까 .. ???
+	char *parse[64]; // char형 포인터는 string으로 받는다
+	// char **parse = calloc(2, sizeof file_name); // calloc 사용... 이게 맞는걸까 .. ???
 	int argc = 0;
 
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
 		 token = strtok_r(NULL, " ", &save_ptr))
 	{
 		parse[argc] = token;
-		for (int j = 0; j < strlen(token); j++)
-		{
-			parse[argc][j] = token[j];
-		}
+		// for (int j = 0; j < strlen(token); j++) // 이중배열을 위한 이중 for문
+		// {
+		// 	parse[argc][j] = token[j];
+		// }
 		argc++;
 
 		// printf("'%s'\n", token);
@@ -371,7 +373,7 @@ load(const char *file_name, struct intr_frame *if_)
 	// printf("%s\n", parse[2]);
 
 	/* Open executable file. */
-	file = filesys_open(file_name);
+	file = filesys_open(parse[0]);
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", file_name);
@@ -455,8 +457,8 @@ load(const char *file_name, struct intr_frame *if_)
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	// parse: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-	argument_stack(parse, argc, &if_->rsp);					   // &parse 아니면 parse가 맞는지?
-	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
+	argument_stack(parse, argc, if_);									  // &parse 아니면 parse가 맞는지?
+	hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
 
 	success = true;
 
@@ -691,32 +693,56 @@ setup_stack(struct intr_frame *if_)
 
 // P2 arg passing: 프로그램 이름과 명령행 인자를 유저 스택에 저장하는 함수
 // parse: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
-// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-void argument_stack(char **argv, int argc, void **rsp)
+// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소(**rsp는 스택에 있는 데이터)
+// === push 하면서 여유 공간 있는지 확인 ?
+void argument_stack(char **argv, int argc, struct intr_frame *_if)
 {
-	rsp = -4;
-	size_t total_size = 0;
-	size_t bytes = 0;
-	for (int i = argc; i < 0; i--)
-	{
-		for (int j = argc; j < 0; j--)
-		{
-			total_size += sizeof(argv[i][j]);
-			memset(rsp, argv[i][j], sizeof(argv[i][j]));
-			rsp = -sizeof(argv[i][j]);
-		}
-	}
-	if (total_size % 4 != 0)
-		rsp = -(4 - (total_size % 4)); // padding
-		
-		rsp = -4; // end of arg string
-		int starting = USER_STACK - 4;  
-		memset(rsp, starting, 4); // argv[n]의 위치 push
-		for (int k = argc; k < 0; k--) 
-		{
-			bytes = 
-		memset(rsp, USER_STACK - 4, 4);
+	// int addr[64]; // 이 메모리 공간은 어디서 오는가?
+	uintptr_t starting = _if->rsp;
 
-		}
+	for (int i = argc - 1; i >= 0; i--)
+	{
+		// addr[i] = USER_STACK;
+		_if->rsp -= (strlen(argv[i]) + 1);
+		memcpy(_if->rsp, argv[i], strlen(argv[i]) + 1);
+		argv[i] = (char *)_if->rsp;
 	}
+
+	if ((_if->rsp % 8) != 0)
+	{
+		_if->rsp -= (_if->rsp % 8);			 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
+		memset(_if->rsp, 0, (_if->rsp % 8)); // end of arg string; 0으로 init
+	}
+
+	_if->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
+	memset(_if->rsp, 0, 8); // end of arg string; 0으로 init
+
+	// _if->rsp -= 8;
+	// memcpy(_if->rsp, starting, 8);
+
+	// 유저스택의 argv[n] ... argv[0]의 시작 주소를 유저 스택에 추가
+	for (int i = argc - 1; i >= 0; i--)
+	{
+		_if->rsp -= 8;
+		// memcpy(_if->rsp, argv[i], 8); // 재형님이 & 붙임
+		*(char **)_if->rsp = argv[i]; 
+		// starting -= (strlen(argv[i]) + 1);
+	}
+
+	// // push argv set의 시작 주소
+	// starting = _if->rsp;
+	// _if->rsp -= 8;
+	// memcpy(_if->rsp, starting, 8);
+
+	// // push argc
+	// _if->rsp -= 8;
+	// memcpy(_if->rsp, argc, 8);
+
+	// push return adress (0을 이렇게 넣는게 맞냐.. )
+	_if->rsp -= 8;
+	// memset(_if->rsp, 0, 8);
+	_if->rsp = (char *)0;
+
+	_if->R.rdi = argc;
+	_if->R.rsi = _if->rsp + 8;
 }
