@@ -323,7 +323,8 @@ bool cmp_sem_priority(const struct list_elem *a,
 {
 	struct list *a_sema_waiters = &list_entry(a, struct semaphore_elem, elem)->semaphore.waiters;
 	struct list *b_sema_waiters = &list_entry(b, struct semaphore_elem, elem)->semaphore.waiters;
-	return (list_entry(list_begin(a_sema_waiters), struct thread, elem)->priority > list_entry(list_begin(b_sema_waiters), struct thread, elem)->priority);
+	return (list_entry(list_begin(a_sema_waiters), struct thread, elem)->priority 
+	> list_entry(list_begin(b_sema_waiters), struct thread, elem)->priority);
 }
 
 // P1 priority: condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정

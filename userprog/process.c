@@ -18,7 +18,7 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
-#include "threads/malloc.h" // 이거 내가 추가해봄 
+#include "threads/malloc.h" // 이거 내가 추가해봄
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -351,9 +351,8 @@ load(const char *file_name, struct intr_frame *if_)
 
 	// P2 arg passing: 파일명 파싱
 	// totototodo
-	
 	char *token, *save_ptr;
-	char **parse = calloc(2, sizeof file_name); // 이게 맞는걸까 .. ???
+	char **parse = calloc(2, sizeof file_name); // calloc 사용... 이게 맞는걸까 .. ???
 	int argc = 0;
 
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
@@ -456,8 +455,8 @@ load(const char *file_name, struct intr_frame *if_)
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	// parse: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-	argument_stack(parse, argc, &if_->rsp); // &parse 아니면 parse가 맞는지? 
-	hex_dump(if_->rsp, if_->rsp, LOADER_PHYS_BASE - if_->rsp, true);
+	argument_stack(parse, argc, &if_->rsp);					   // &parse 아니면 parse가 맞는지?
+	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
 
 	success = true;
 
@@ -693,7 +692,31 @@ setup_stack(struct intr_frame *if_)
 // P2 arg passing: 프로그램 이름과 명령행 인자를 유저 스택에 저장하는 함수
 // parse: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 // count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-void argument_stack(char **parse, int count, void **rsp)
+void argument_stack(char **argv, int argc, void **rsp)
 {
-	
+	rsp = -4;
+	size_t total_size = 0;
+	size_t bytes = 0;
+	for (int i = argc; i < 0; i--)
+	{
+		for (int j = argc; j < 0; j--)
+		{
+			total_size += sizeof(argv[i][j]);
+			memset(rsp, argv[i][j], sizeof(argv[i][j]));
+			rsp = -sizeof(argv[i][j]);
+		}
+	}
+	if (total_size % 4 != 0)
+		rsp = -(4 - (total_size % 4)); // padding
+		
+		rsp = -4; // end of arg string
+		int starting = USER_STACK - 4;  
+		memset(rsp, starting, 4); // argv[n]의 위치 push
+		for (int k = argc; k < 0; k--) 
+		{
+			bytes = 
+		memset(rsp, USER_STACK - 4, 4);
+
+		}
+	}
 }
