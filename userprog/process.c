@@ -339,7 +339,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 load(const char *file_name, struct intr_frame *if_)
 {
-	
+
 	struct thread *t = thread_current();
 	struct ELF ehdr;
 	struct file *file = NULL;
@@ -352,7 +352,6 @@ load(const char *file_name, struct intr_frame *if_)
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate(thread_current());
-
 
 	// P2 arg passing: 파일명 파싱
 	char *token, *save_ptr;
@@ -700,6 +699,8 @@ setup_stack(struct intr_frame *if_)
 void argument_stack(char **argv, int argc, struct intr_frame *_if)
 {
 
+	/* ================집단지성 디버깅 코드 - OK =========================== */
+
 	// int addr[64]; // 이 메모리 공간은 어디서 오는가?
 	// uintptr_t starting = _if->rsp;
 
@@ -711,16 +712,14 @@ void argument_stack(char **argv, int argc, struct intr_frame *_if)
 		argv[i] = (char *)_if->rsp;
 	}
 
-	// if ((_if->rsp % 8) != 0)
-	// {
-	// 	_if->rsp -= (_if->rsp % 8);			 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
-	// 	memset(_if->rsp, 0, 8*(_if->rsp % 8)); // end of arg string; 0으로 init
-	// }
+	_if->rsp -= (_if->rsp % 8);				 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
+	memset(_if->rsp, 0, 8 * (_if->rsp % 8)); // end of arg string; 0으로 init
 
-	while(_if->rsp%8!=0){
-		_if->rsp--;
-		*(uint8_t*)_if->rsp = 0;
-	}
+	// while (_if->rsp % 8 != 0)
+	// {
+	// 	_if->rsp--;
+	// 	*(uint8_t *)_if->rsp = 0;
+	// }
 
 	_if->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
 	memset(_if->rsp, 0, 8); // end of arg string; 0으로 init
@@ -732,8 +731,8 @@ void argument_stack(char **argv, int argc, struct intr_frame *_if)
 	for (int i = argc - 1; i >= 0; i--)
 	{
 		_if->rsp -= 8;
-		// memcpy(_if->rsp, argv[i], 8); // 재형님이 & 붙임
-		*(char **)_if->rsp = argv[i];
+		// memcpy(_if->rsp, argv[i], 8); 
+		*(char **)_if->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
 		// starting -= (strlen(argv[i]) + 1);
 	}
 
@@ -749,8 +748,42 @@ void argument_stack(char **argv, int argc, struct intr_frame *_if)
 	// push return adress (0을 이렇게 넣는게 맞냐.. )
 	_if->rsp -= 8;
 	memset(_if->rsp, 0, 8);
-	// _if->rsp = (char *)0;
 
+	// push argv set의 시작 주소 & push argc
 	_if->R.rdi = argc;
 	_if->R.rsi = (uint64_t)_if->rsp + 8;
+	/* ================ 집단지성 디버깅 코드 - 끝 =========================== */
+
+	/* ================Heruing 코드 - OK =========================== */
+	// char *rsp_origin = _if->rsp;
+	// for (int i = argc - 1; i >= 0; i--)
+	// {
+	// 	int arglen = strlen(argv[i]) + 1; // NULL(+1)
+	// 	_if->rsp -= arglen;
+	// 	memcpy(_if->rsp, argv[i], arglen);
+	// }
+
+	// // 8byte padding
+	// int alignPadding = _if->rsp % 8;
+	// _if->rsp -= alignPadding;
+	// if (alignPadding)
+	// 	memset(_if->rsp, 0, alignPadding);
+
+	// // sentinel pointer argv[argc]
+	// _if->rsp -= sizeof(char *);
+	// memset(_if->rsp, 0, sizeof(char *));
+
+	// for (int j = argc - 1; j >= 0; j--)
+	// {
+	// 	_if->rsp -= sizeof(char *);
+	// 	int arglen = strlen(argv[j]) + 1;
+	// 	rsp_origin -= arglen;
+	// 	memcpy(_if->rsp, &rsp_origin, sizeof(char *));
+	// }
+
+	// // fake "return address" for function return
+	// // for user stack frame structure 형식이 멋져보이려고
+	// _if->rsp -= sizeof(char *);
+	// memset(_if->rsp, 0, sizeof(char *));
+	/* ================Heruing 코드 - 끝 =========================== */
 }
