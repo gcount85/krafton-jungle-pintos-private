@@ -200,7 +200,7 @@ void lock_init(struct lock *lock)
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
 
-// P2 priority: 만약 락을 사용할 수 없다면, 락의 주소를 저장해라
+// P1 priority: 만약 락을 사용할 수 없다면, 락의 주소를 저장해라
 // 현재의 우선순위를 저장하고, 리스트에 있는 donated threads를 유지해라(멀티플 도네이션)
 // 우선순위를 도네이트해라
 void lock_acquire(struct lock *lock)
@@ -249,7 +249,7 @@ bool lock_try_acquire(struct lock *lock)
    make sense to try to release a lock within an interrupt
    handler. */
 
-// P2 Priority: lock이 해제되면, 도네이션 리스트에서 락을 쥐고 있던 애를 제거
+// P1 Priority: lock이 해제되면, 도네이션 리스트에서 락을 쥐고 있던 애를 제거
 // 우선순위를 업데이트 해라 제대로.
 void lock_release(struct lock *lock)
 {

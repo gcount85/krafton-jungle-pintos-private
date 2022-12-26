@@ -427,28 +427,32 @@ void thread_yield(void)
 	intr_set_level(old_level); // 인터럽트 다시 받겠다
 }
 
-// P2 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
+// P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
 // ==cmp priority를 쓸건지, 직접 비교할건지?==
 void test_max_priority(void)
 {
-	struct thread *cur = thread_current();
-	struct list_elem *begin = list_begin(&ready_list);
+	// struct thread *cur = thread_current();
+	// struct list_elem *begin = list_begin(&ready_list);
 
-	struct list_elem *cur_elem = &cur->elem;
-	// int begin_priority = list_entry(begin, struct thread, elem)->priority;
+	// struct list_elem *cur_elem = &cur->elem;
+	// // int begin_priority = list_entry(begin, struct thread, elem)->priority;
 
-	// if (cur->priority > begin_priority)
-	bool cmp_val = cmp_priority(cur_elem, begin, NULL);
+	// // if (cur->priority > begin_priority)
+	// bool cmp_val = cmp_priority(cur_elem, begin, NULL);
 
-	if (cmp_val == true)
-		return;
+	// if (cmp_val == true)
+	// 	return;
 
-	if (!intr_context())
+	// if (!intr_context())
+	// 	thread_yield();
+
+	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority &&
+			!intr_context())
 		thread_yield();
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-// P2 Priority: 도네이션을 고려하여 우선순위 지정
+// P1 Priority: 도네이션을 고려하여 우선순위 지정
 void thread_set_priority(int new_priority)
 {
 	// struct thread *cur = thread_current();
@@ -549,7 +553,7 @@ kernel_thread(thread_func *function, void *aux)
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 // 쓰레드 초기화: block 상태
-// P2 priority: priority donation을 위한 자료구조를 초기화하라
+// P1 priority: priority donation을 위한 자료구조를 초기화하라
 static void
 init_thread(struct thread *t, const char *name, int priority)
 {
