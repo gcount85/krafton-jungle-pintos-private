@@ -221,6 +221,7 @@ int process_wait(tid_t child_tid UNUSED)
 }
 
 /* Exit the process. This function is called by thread_exit (). */
+// P2 sys call: TODO
 void process_exit(void)
 {
 	struct thread *curr = thread_current();
@@ -353,7 +354,7 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	process_activate(thread_current());
 
-	// P2 arg passing: 파일명 파싱
+	// **************** P2 arg passing: 파일명 파싱 *************************** //
 	char *token, *save_ptr;
 	char *argv[64]; // char형 포인터는 string으로 받는다
 	int argc = 0;
@@ -362,16 +363,9 @@ load(const char *file_name, struct intr_frame *if_)
 		 token = strtok_r(NULL, " ", &save_ptr))
 	{
 		argv[argc] = token;
-		// for (int j = 0; j < strlen(token); j++) // 이중배열을 위한 이중 for문
-		// {
-		// 	argv[argc][j] = token[j];
-		// }
 		argc++;
-
-		// printf("'%s'\n", token);
-		// printf("%i\n", argc);
 	}
-	// printf("%s\n", argv[2]);
+	// **************** P2 arg passing: 파일명 파싱 - 끝 ************************ //
 
 	/* Open executable file. */
 	file = filesys_open(argv[0]);
@@ -454,12 +448,13 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	/* P2 arg passing
-	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	// **************** P2 arg passing: args passing *************************** //
+	/* TODO : Implement argument passing(see project2 / argument_passing.html). */
 	// argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-	argument_stack(argv, argc, if_);									  // &argv 아니면 parse가 맞는지?
+	argument_stack(argv, argc, if_);									  
 	hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
+	// **************** P2 arg passing: args passing - 끝 ********************** //
 
 	success = true;
 
@@ -731,9 +726,9 @@ void argument_stack(char **argv, int argc, struct intr_frame *_if)
 	for (int i = argc - 1; i >= 0; i--)
 	{
 		_if->rsp -= 8;
-		// memcpy(_if->rsp, argv[i], 8); 
+		// memcpy(_if->rsp, argv[i], 8);
 		*(char **)_if->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
-		// starting -= (strlen(argv[i]) + 1);
+									  // starting -= (strlen(argv[i]) + 1);
 	}
 
 	// // push argv set의 시작 주소

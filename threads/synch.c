@@ -111,8 +111,7 @@ bool sema_try_down(struct semaphore *sema)
    and wakes up one thread of those waiting for SEMA, if any.
 
    This function may be called from an interrupt handler. */
-// P1 priority todo: 우선순위대로 waiter를 정렬
-// 세마포어를 놔줌.
+// P1 priority: 우선순위대로 waiter를 정렬, 세마포어를 놔줌.
 void sema_up(struct semaphore *sema)
 {
 	enum intr_level old_level;
@@ -120,7 +119,7 @@ void sema_up(struct semaphore *sema)
 	ASSERT(sema != NULL);
 
 	old_level = intr_disable();
-	// list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
+
 	if (!list_empty(&sema->waiters))
 	{
 		list_sort(&sema->waiters, cmp_priority, NULL); // P1 priority: 대기자 리스트 정렬
@@ -128,7 +127,7 @@ void sema_up(struct semaphore *sema)
 								  struct thread, elem));
 	}
 	sema->value++;
-	test_max_priority(); // priority preemption 기능 추가?
+	test_max_priority(); // P1 priority: 러닝 스레드와 대기 리스트의 우선순위 비교 
 	intr_set_level(old_level);
 }
 

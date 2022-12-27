@@ -582,9 +582,18 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 
+	// ***************** P1 donation: 초기화 추가*****************
 	t->origin_priority = priority;
 	t->lock_address = NULL;
 	list_init(&t->multiple_donation);
+	// ***************** P1 donation: 초기화 추가 - 끝 ***********
+
+	// ***************** P2: 초기화 추가*****************
+	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화 
+	sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
+	t->exit_status = 0; // exit_status 값 초기화 (몇으로?) 
+	t->load_status = 0; // load_status 값 초기화 (몇으로?) 
+	// ***************** P2: 초기화 추가 - 끝*****************
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

@@ -92,12 +92,25 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
-	int64_t wakeup_tick;	   // P1 alarm: 일어나야 하는 시간 /* tick till wake up */
 
-	int origin_priority; /* Priority. */
-	struct lock *lock_address;
-	struct list multiple_donation;
-	struct list_elem multiple_donation_elem;
+	// ****************** P1: 추가한 필드 *************************
+	int64_t wakeup_tick;					 // P1 alarm: tick till wake up
+	int origin_priority;					 // P1 donation: 원래의 우선순위 값
+	struct lock *lock_address;				 // P1 donation: 락 주소
+	struct list multiple_donation;			 // P1 donation
+	struct list_elem multiple_donation_elem; // P1 donation
+	// ****************** P1: 추가한 필드 - 끝 *************************
+
+	// ****************** P2: 추가한 필드 *************************
+	struct thread *parent_process;	// Pointer to parent process
+	struct list siblings_list;		// Pointers to the sibling.
+	struct list_elem child_list;	// Pointers to the children:
+	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어
+	struct semaphore sema_for_exec; // `exec()`을 위한 세마포어
+	int exit_status;				// 스레드의 종료 상태를 나타냄
+	int load_status;				// 스레드의 로드 상태를 나타냄
+	// ****************** P2: 추가한 필드 - 끝 ********************
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 
@@ -149,7 +162,7 @@ int thread_get_load_avg(void);
 
 void do_iret(struct intr_frame *tf);
 
-// P1: 추가한 함수
+// ****************** P1: 추가한 함수 *************************
 void thread_sleep(int64_t ticks);
 void thread_wakeup(int64_t ticks);
 void update_next_tick_to_awake(int64_t ticks);
@@ -163,6 +176,6 @@ void refresh_priority(void);
 void remove_with_lock(struct lock *lock);
 void thread_priority_preemption(void);
 void test_max_priority(void);
-// P1: 추가한 함수 - 끝
+// ****************** P1: 추가한 함수 - 끝 ********************
 
 #endif /* threads/thread.h */
