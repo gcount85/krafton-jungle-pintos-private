@@ -428,27 +428,41 @@ void thread_yield(void)
 }
 
 // P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
-// ==cmp priority를 쓸건지, 직접 비교할건지?==
+// ==cmp priority를 쓸건지, 직접 비교할건지? == -> 직접 비교로 바꿔서 에러 해결함(아래4번)
+// 수정한거
+// 1. cur 을 thread_current로 바로 받음 (중간에 현재 쓰레드 바뀔까봐 -> 상관 없었다)★
+// 2. 리스트 엠티 확인
+// 3. 레디리스트의 첫째를 변수로 저장 안하고 바로 받음 (중간에 레디 리스트 첫째가 바뀔까봐 -> 상관 없었따)★
+// 4. cmp_priority 함수 사용 안함 (함수로 넘겨주면서 바뀌거나, 등호 때문인듯)★★★ 이놈이 원인
+// 5. begin -> front로 바꿔 써봄 (차이 없었다)
 void test_max_priority(void)
 {
-	// struct thread *cur = thread_current();
-	// struct list_elem *begin = list_begin(&ready_list);
+	/* =========================== 수정코드 시작 - OK ===================================== */
+	// 슬립 리스트가 비어있지 않고,
+	// 현재의 스레드의 우선순위 < 슬립 리스트의 첫번째 원소의 우선순위
+	// 인터럽트 처리중이 아닐 때 (!intr_context())
+	// 위의 조건을 모두 만족할 때 thread_yield();
 
-	// struct list_elem *cur_elem = &cur->elem;
-	// // int begin_priority = list_entry(begin, struct thread, elem)->priority;
+	struct thread *cur = thread_current();
+	struct list_elem *ready_begin = list_begin(&ready_list);
 
-	// // if (cur->priority > begin_priority)
-	// bool cmp_val = cmp_priority(cur_elem, begin, NULL);
+	if (list_empty(&ready_list))
+		return;
 
-	// if (cmp_val == true)
-	// 	return;
+	if (cur->priority >= list_entry(ready_begin, struct thread, elem)->priority)
+		return;
 
-	// if (!intr_context())
+	if (intr_context()) // P2 에러 방지를 위해 추가
+		return;
+
+	thread_yield();
+	/* =========================== 수정코드 끝 ===================================== */
+
+
+	/* =========================== 되는 코드 ===================================== */
+	// if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority && !intr_context())
 	// 	thread_yield();
-
-	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority &&
-			!intr_context())
-		thread_yield();
+	/* =========================== 되는 코드 - 끝 ===================================== */
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
