@@ -5,8 +5,11 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
-// #include "threads/synch.h" // P2 syscall: thread 구조체의 세마포어 필드를 위함
-#include "filesys/file.h"
+
+/*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
+// #include "threads/synch.h" // thread 구조체의 세마포어 필드를 위함
+
+/*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
 
 #ifdef VM
 #include "vm/vm.h"
@@ -30,6 +33,12 @@ typedef int tid_t;
 #define PRI_MIN 0	   /* Lowest priority. */
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63	   /* Highest priority. */
+
+/*************** P2 sys call: OPEN_MAX 값 정의 ***************/
+#define FDT_PAGES 3	   
+#define OPEN_MAX (FDT_PAGES * (1 << 9))	   
+/*************** P2 sys call: OPEN_MAX 값 정의 - 끝 ***************/
+
 
 /* A kernel thread or user process.
  *
@@ -112,7 +121,7 @@ struct thread
 	struct semaphore sema_for_exec; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
 	int exit_status;				// 스레드의 종료 상태를 나타냄
 	int load_status;				// 스레드의 로드 상태를 나타냄
-	struct file fdt[64];			// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)   
+	struct file **fdt;				// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)
 	int next_fd;					// 다음 fd 인덱스
 	// ****************** P2: 추가한 필드 - 끝 ********************
 

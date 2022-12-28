@@ -10,11 +10,15 @@
 // P2 syscall: syscall interface를 위한 헤더 추가 - 시작
 #include "include/filesys/file.h"
 #include "include/filesys/filesys.h"
+#include "include/lib/kernel/stdio.h"
 // P2 syscall: syscall interface를 위한 헤더 추가 - 끝
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
-typedef int pid_t; // P2 syscall: 추가한 부분
+
+/********* P2 sys call: typedef 선언 - 시작 *********/
+typedef int fd; // 파일 디스크립터
+/********* P2 sys call: typedef 선언 - 끝 *********/
 
 /* System call.
  *
@@ -118,70 +122,120 @@ void exit(int status)
 	thread_exit();
 }
 
-pid_t exec(const char *cmd_line)
-{
-	
-}
-
-int wait(pid_t pid)
+tid_t exec(const char *cmd_line)
 {
 }
 
+int wait(tid_t pid)
+{
+}
+
+// P2 sys call; `initial_size`를 가진 파일을 만듦
 bool create(const char *file, unsigned initial_size)
 {
-	filesys_create(file, initial_size);
+	if (filesys_create(file, initial_size))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
+// P2 sys call; `file`이라는 이름을 가진 파일 삭제
 bool remove(const char *file)
 {
-	filesys_remove(file);
+	if (filesys_remove(file))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
-int open(const char *file)
+// P2 sys call: `file` 안의 path에 있는 file open + fd 반환
+fd open(const char *file)
 {
 	struct thread *cur = thread_current();
-	// cur->fdt[fdt의 비어있는 index] = file_open();
-	// return fdt의 비어있는 index;
+	int i = 2;
+	while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	{
+		if (cur->fdt[i] == 0)
+		{
+			cur->fdt[i] = filesys_open(file);
+			return i;
+		}
+
+		if (i == OPEN_MAX)
+			return -1;
+
+		i++;
+	}
 }
 
+// P2 sys call: `fd`로 open 되어 있는 파일의 바이트 사이즈 반환
 int filesize(int fd)
 {
 	struct thread *cur = thread_current();
 
-	// fd 인수로 어떻게 파일을 찾나? 러닝 스레드의 fdt 이용?
-	file_length();
+	if (fd < 2 || cur->fdt[fd] == 0)
+		return -1;
+
+	return file_length(cur->fdt[fd]);
 }
 
+// P2 sys call: fd`로 open 되어 있는 파일로부터 `size` 바이트를 읽어내 `buffer`에 담음 + 실제로 읽어낸 바이트 반환
 int read(int fd, void *buffer, unsigned size)
 {
 	struct thread *cur = thread_current();
+
+	if (fd < 0 || cur->fdt[fd] == 0)
+		return -1;
+
 	if (fd == 0)
 	{
-		input_getc();
+		return input_getc();
 	}
 	else
 	{
-		file_read();
+		// 0 반환 → 파일의 끝을 의미
+		return file_read(cur->fdt[fd], buffer, size);
 	}
 }
 
+// P2 sys call: `buffer`에 담긴 `size` 바이트를 open file `fd`에 쓰기 + 실제로 쓰인 바이트의 숫자를 반환
 int write(int fd, const void *buffer, unsigned size)
 {
 	struct thread *cur = thread_current();
+
+	if (fd < 0 || cur->fdt[fd] == 0)
+		return -1;
+
+	if (read(cur->fdt[fd], buffer, size) == 0) // 파일의 끝인 경우 에러 
+		return -1;
+
 	if (fd == 1)
 	{
-		putbuf();
+		putbuf(buffer, size);
+		return size;
 	}
 	else
 	{
-		file_write();
+		return file_write(cur->fdt[fd], buffer, size);
 	}
 }
 
-void seek(int fd, unsigned position)
+void seek(int fd, unsigned new_position)
 {
 	struct thread *cur = thread_current();
-	file_seek();
+
+	if (fd < 2 || cur->fdt[fd] == 0)
+		return;
+
+	file_seek(cur->fdt[fd], new_position);
 }
 
 unsigned tell(int fd)
@@ -192,11 +246,12 @@ unsigned tell(int fd)
 void close(int fd)
 {
 	struct thread *cur = thread_current();
-	file_close(cur->fdt[fd]); // 파일 구조체 선언을 위한 헤더 헷갈린다 ㅠㅠ
+	file_close(cur->fdt[fd]);
+	cur->fdt[fd] = 0;
 }
 /******* P2 syscall: TODO The main system call interface & body - 끝 *******/
 
-/*************** P2 syscall: kaist pdf에서 복붙한 코드 - 시작 - unsure ***********/
+/*********** P2 syscall: kaist pdf에서 복붙한 코드 - 시작 - unsure ***********/
 /* Reads a byte at user virtual address UADDR.
 UADDR must be below PHYS_BASE.
 Returns the byte value if successful, -1 if a segfault

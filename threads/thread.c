@@ -15,6 +15,11 @@
 #include "userprog/process.h"
 #endif
 
+/*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
+#include "lib/stdio.h"
+/*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
+
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -202,6 +207,14 @@ tid_t thread_create(const char *name, int priority,
 	/* Initialize thread. */
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
+
+	/********** P2 sys call: fdt 초기화 코드 - 시작 **********/
+	t->fdt = palloc_get_page(PAL_ZERO); // zeroed 4KB 페이지 할당
+	if (t->fdt == NULL)
+		return TID_ERROR;
+	t->fdt[STDIN_FILENO] = stdin;  
+	t->fdt[STDOUT_FILENO] = stdout;
+	/********** P2 sys call: fdt 초기화 코드 - 끝 **********/
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
@@ -585,8 +598,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
 	t->exit_status = 0;				 // exit_status 값 초기화 (몇으로?)
 	t->load_status = 0;				 // load_status 값 초기화 (몇으로?)
-	
-	/***************** P2 sys call: 초기화 추가 - 끝*****************/
+									 /***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
