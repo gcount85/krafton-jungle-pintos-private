@@ -5,9 +5,13 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h" // P2 syscall: thread 구조체의 세마포어 필드를 위함
 #ifdef VM
 #include "vm/vm.h"
 #endif
+
+
+
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -174,7 +178,7 @@ bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, v
 void donate_priority(void);
 void refresh_priority(void);
 void remove_with_lock(struct lock *lock);
-void thread_priority_preemption(void);
+// void thread_priority_preemption(void);
 void test_max_priority(void);
 // ****************** P1: 추가한 함수 - 끝 ********************
 

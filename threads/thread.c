@@ -350,7 +350,7 @@ void thread_wakeup(int64_t ticks)
 			thread_unblock(t);	// 스레드 unblock
 		}
 		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
-		// 괄호 때문에 디버깅 났었음
+		// 괄호 때문에 에러 났었음
 		{
 			update_next_tick_to_awake(t->wakeup_tick);
 			break;
@@ -417,31 +417,29 @@ void thread_yield(void)
 
 	ASSERT(!intr_context());
 
-	// 락이랑 비슷함. 인터럽트 안 받겠다는 거
 	old_level = intr_disable(); // 인터럽트 off
 	if (curr != idle_thread)
-		// list_push_back(&ready_list, &curr->elem);
-		// P1 priority: 우선순위 정렬에 맞춰 리스트에 삽입
-		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL); // P1 priority: 우선순위 정렬에 맞춰 리스트에 삽입
 	do_schedule(THREAD_READY); // 러닝 스레드가 레디 상태로 바뀌고, 레디 리스트 삽입
 	intr_set_level(old_level); // 인터럽트 다시 받겠다
 }
 
 // P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
-// ==cmp priority를 쓸건지, 직접 비교할건지? == -> 직접 비교로 바꿔서 에러 해결함(아래4번)
-// 수정한거
-// 1. cur 을 thread_current로 바로 받음 (중간에 현재 쓰레드 바뀔까봐 -> 상관 없었다)★
-// 2. 리스트 엠티 확인
-// 3. 레디리스트의 첫째를 변수로 저장 안하고 바로 받음 (중간에 레디 리스트 첫째가 바뀔까봐 -> 상관 없었따)★
-// 4. cmp_priority 함수 사용 안함 (함수로 넘겨주면서 바뀌거나, 등호 때문인듯)★★★ 이놈이 원인
-// 5. begin -> front로 바꿔 써봄 (차이 없었다)
 void test_max_priority(void)
 {
 	/* =========================== 수정코드 시작 - OK ===================================== */
-	// 슬립 리스트가 비어있지 않고,
+	// 슬립 리스트가 비어 있지 않고,
 	// 현재의 스레드의 우선순위 < 슬립 리스트의 첫번째 원소의 우선순위
-	// 인터럽트 처리중이 아닐 때 (!intr_context())
+	// 인터럽트 처리 중이 아닐 때 (!intr_context())
 	// 위의 조건을 모두 만족할 때 thread_yield();
+
+	// 수정한 거
+	// ==cmp priority를 쓸건지, 직접 비교할건지? == -> 직접 비교로 바꿔서 에러 해결함(아래4번)
+	// 1. cur 을 thread_current로 바로 받음 (중간에 현재 쓰레드 바뀔까봐 -> 상관 없었다)★
+	// 2. 리스트 엠티 확인
+	// 3. 레디리스트의 첫째를 변수로 저장 안하고 바로 받음 (중간에 레디 리스트 첫째가 바뀔까봐 -> 상관 없었따)★
+	// 4. cmp_priority 함수 사용 안함 (함수로 넘겨주면서 바뀌거나, 등호 때문인듯)★★★ 이놈이 원인
+	// 5. begin -> front로 바꿔 써봄 (차이 없었다)
 
 	struct thread *cur = thread_current();
 	struct list_elem *ready_begin = list_begin(&ready_list);
@@ -457,12 +455,6 @@ void test_max_priority(void)
 
 	thread_yield();
 	/* =========================== 수정코드 끝 ===================================== */
-
-
-	/* =========================== 되는 코드 ===================================== */
-	// if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority && !intr_context())
-	// 	thread_yield();
-	/* =========================== 되는 코드 - 끝 ===================================== */
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -472,10 +464,10 @@ void thread_set_priority(int new_priority)
 	// struct thread *cur = thread_current();
 	// cur->priority = new_priority;
 	// test_max_priority();
-
 	thread_current()->origin_priority = new_priority;
 	refresh_priority();
-	thread_priority_preemption();
+	// thread_priority_preemption();
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -589,11 +581,11 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ***************** P1 donation: 초기화 추가 - 끝 ***********
 
 	// ***************** P2: 초기화 추가*****************
-	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화 
+	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
 	sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
-	t->exit_status = 0; // exit_status 값 초기화 (몇으로?) 
-	t->load_status = 0; // load_status 값 초기화 (몇으로?) 
-	// ***************** P2: 초기화 추가 - 끝*****************
+	t->exit_status = 0;				 // exit_status 값 초기화 (몇으로?)
+	t->load_status = 0;				 // load_status 값 초기화 (몇으로?)
+									 // ***************** P2: 초기화 추가 - 끝*****************
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -787,11 +779,11 @@ allocate_tid(void)
 }
 
 /* donate */
-void thread_priority_preemption(void)
-{
-	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
-		thread_yield();
-}
+// void thread_priority_preemption(void)
+// {
+// 	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
+// 		thread_yield();
+// }
 
 bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
