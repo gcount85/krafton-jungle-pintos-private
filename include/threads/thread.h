@@ -5,13 +5,12 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
-#include "threads/synch.h" // P2 syscall: thread 구조체의 세마포어 필드를 위함
+// #include "threads/synch.h" // P2 syscall: thread 구조체의 세마포어 필드를 위함
+#include "filesys/file.h"
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
-
-
-
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -109,10 +108,12 @@ struct thread
 	struct thread *parent_process;	// Pointer to parent process
 	struct list siblings_list;		// Pointers to the sibling.
 	struct list_elem child_list;	// Pointers to the children:
-	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어
-	struct semaphore sema_for_exec; // `exec()`을 위한 세마포어
+	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_exec; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
 	int exit_status;				// 스레드의 종료 상태를 나타냄
 	int load_status;				// 스레드의 로드 상태를 나타냄
+	struct file fdt[64];			// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)   
+	int next_fd;					// 다음 fd 인덱스
 	// ****************** P2: 추가한 필드 - 끝 ********************
 
 	/* Shared between thread.c and synch.c. */
@@ -178,7 +179,7 @@ bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, v
 void donate_priority(void);
 void refresh_priority(void);
 void remove_with_lock(struct lock *lock);
-// void thread_priority_preemption(void);
+// void thread_priority_preemption(void); // 아래의 test_max_priority 함수와 기능 동일
 void test_max_priority(void);
 // ****************** P1: 추가한 함수 - 끝 ********************
 

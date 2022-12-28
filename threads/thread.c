@@ -420,8 +420,8 @@ void thread_yield(void)
 	old_level = intr_disable(); // 인터럽트 off
 	if (curr != idle_thread)
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL); // P1 priority: 우선순위 정렬에 맞춰 리스트에 삽입
-	do_schedule(THREAD_READY); // 러닝 스레드가 레디 상태로 바뀌고, 레디 리스트 삽입
-	intr_set_level(old_level); // 인터럽트 다시 받겠다
+	do_schedule(THREAD_READY);											   // 러닝 스레드가 레디 상태로 바뀌고, 레디 리스트 삽입
+	intr_set_level(old_level);											   // 인터럽트 다시 받겠다
 }
 
 // P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
@@ -574,18 +574,19 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 
-	// ***************** P1 donation: 초기화 추가*****************
+	/***************** P1 donation: 초기화 추가*****************/
 	t->origin_priority = priority;
 	t->lock_address = NULL;
 	list_init(&t->multiple_donation);
-	// ***************** P1 donation: 초기화 추가 - 끝 ***********
+	/***************** P1 donation: 초기화 추가 - 끝 *****************/
 
-	// ***************** P2: 초기화 추가*****************
+	/***************** P2 sys call: 초기화 추가*************************/
 	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
 	sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
 	t->exit_status = 0;				 // exit_status 값 초기화 (몇으로?)
 	t->load_status = 0;				 // load_status 값 초기화 (몇으로?)
-									 // ***************** P2: 초기화 추가 - 끝*****************
+	
+	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

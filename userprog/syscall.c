@@ -7,6 +7,10 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+// P2 syscall: syscall interface를 위한 헤더 추가 - 시작
+#include "include/filesys/file.h"
+#include "include/filesys/filesys.h"
+// P2 syscall: syscall interface를 위한 헤더 추가 - 끝
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -36,17 +40,20 @@ void syscall_init(void)
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+
+	/********* P2 syscall: filesys_lock 초기화를 위한 코드 추가 - unsure *********/
+	lock_init(&filesys_lock);
+	/********* P2 syscall: filesys_lock 초기화를 위한 코드 추가 - unsure *********/
 }
 
-/* The main system call interface
- * P2 syscall TODO: body 구현하기
- ***** 중요한 점 ******
+/******* P2 syscall: TODO The main system call interface & body *******/
+/* ***** 중요한 점 ******
  * 1. syscall-nr.h 에서 번호 확인
  * 2. 유저가 준 포인터 에러처리; (void *)0 같은 포인터 넘겨주는 경우 등 */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
 	// TODO: Your implementation goes here.
-	
+
 	switch (f->R.rax)
 	{
 	case SYS_HALT: /* Halt the operating system. */
@@ -62,12 +69,16 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exec(cmd_line);
 		break;
 	case SYS_WAIT: /* Wait for a child process to die. */
+		wait();
 		break;
 	case SYS_CREATE: /* Create a file. */
+		create();
 		break;
 	case SYS_REMOVE: /* Delete a file. */
+		remove();
 		break;
 	case SYS_OPEN: /* Open a file. */
+		open();
 		break;
 	case SYS_FILESIZE: /* Obtain a file's size. */
 		filesize();
@@ -94,7 +105,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 }
 
 /* P2 syscall: sys call body
- * 다 만들고 헤더에 추가하기*/
+ * 다 만들고 헤더에 추가하기 */
 void halt(void)
 {
 	power_off();
@@ -106,17 +117,86 @@ void exit(int status)
 	printf("%s: exit(%d)\n", cur->name, status);
 	thread_exit();
 }
+
 pid_t exec(const char *cmd_line)
 {
-	power_off();
+	
 }
 
 int wait(pid_t pid)
 {
 }
 
-/********************* pdf에서 복붙한 코드: unsure *****************/
+bool create(const char *file, unsigned initial_size)
+{
+	filesys_create(file, initial_size);
+}
 
+bool remove(const char *file)
+{
+	filesys_remove(file);
+}
+
+int open(const char *file)
+{
+	struct thread *cur = thread_current();
+	// cur->fdt[fdt의 비어있는 index] = file_open();
+	// return fdt의 비어있는 index;
+}
+
+int filesize(int fd)
+{
+	struct thread *cur = thread_current();
+
+	// fd 인수로 어떻게 파일을 찾나? 러닝 스레드의 fdt 이용?
+	file_length();
+}
+
+int read(int fd, void *buffer, unsigned size)
+{
+	struct thread *cur = thread_current();
+	if (fd == 0)
+	{
+		input_getc();
+	}
+	else
+	{
+		file_read();
+	}
+}
+
+int write(int fd, const void *buffer, unsigned size)
+{
+	struct thread *cur = thread_current();
+	if (fd == 1)
+	{
+		putbuf();
+	}
+	else
+	{
+		file_write();
+	}
+}
+
+void seek(int fd, unsigned position)
+{
+	struct thread *cur = thread_current();
+	file_seek();
+}
+
+unsigned tell(int fd)
+{
+	file_tell();
+}
+
+void close(int fd)
+{
+	struct thread *cur = thread_current();
+	file_close(cur->fdt[fd]); // 파일 구조체 선언을 위한 헤더 헷갈린다 ㅠㅠ
+}
+/******* P2 syscall: TODO The main system call interface & body - 끝 *******/
+
+/*************** P2 syscall: kaist pdf에서 복붙한 코드 - 시작 - unsure ***********/
 /* Reads a byte at user virtual address UADDR.
 UADDR must be below PHYS_BASE.
 Returns the byte value if successful, -1 if a segfault
