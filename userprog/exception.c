@@ -140,10 +140,6 @@ static void page_fault(struct intr_frame *f)
 	write = (f->error_code & PF_W) != 0;
 	user = (f->error_code & PF_U) != 0;
 
-	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - unsure *****/
-	exit(-1);
-	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - 끝 - unsure *****/
-
 #ifdef VM
 	/* For project 3 and later. */
 	if (vm_try_handle_fault(f, fault_addr, user, write, not_present))
@@ -153,6 +149,9 @@ static void page_fault(struct intr_frame *f)
 	/* Count page faults. */
 	page_fault_cnt++;
 
+	// P2 syscall: TODO; Kill하기 전에 프로세의 lock release & malloc free? ==여기서==?
+	// kill(f);
+
 	/* If the fault is true fault, show info and exit. */
 	printf("Page fault at %p: %s error %s page in %s context.\n",
 		   fault_addr,
@@ -160,6 +159,7 @@ static void page_fault(struct intr_frame *f)
 		   write ? "writing" : "reading",
 		   user ? "user" : "kernel");
 
-	// P2 syscall: TODO; Kill하기 전에 프로세의 lock release & malloc free? ==여기서==?
-	kill(f);
+	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - unsure *****/
+	exit(-888);
+	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - 끝 - unsure *****/
 }

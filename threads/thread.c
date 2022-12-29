@@ -32,8 +32,14 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-// 새로 구현한 것; 블락된 쓰레드들을 위한 쓰레드
-static struct list sleep_list;
+/*************** P1 priority: 프로토타입 추가 - 시작 ***************/
+static struct list sleep_list;	   // 블락된 쓰레드들을 위한 쓰레드
+static int64_t next_tick_to_awake; // 슬립 리스트의 쓰레드가 가진 가장 작은 틱
+static bool cmp_wakeup_tick(const struct list_elem *a,
+							const struct list_elem *b,
+							void *aux);
+
+/*************** P1 priority: 프로토타입 추가 - 끝 ***************/
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -69,12 +75,6 @@ static void init_thread(struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
-static bool cmp_wakeup_tick(const struct list_elem *a,
-							const struct list_elem *b,
-							void *aux);
-
-// P1 alarm: 슬립 리스트의 쓰레드가 가진 가장 작은 틱
-static int64_t next_tick_to_awake;
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -215,6 +215,7 @@ tid_t thread_create(const char *name, int priority,
 	// t->fdt[STDOUT_FILENO] = stdout; // undeclared 에러
 	t->fdt[STDIN_FILENO] = 1;
 	t->fdt[STDOUT_FILENO] = 2;
+
 	/********** P2 sys call: fdt 초기화 코드 - 끝 **********/
 
 	/* Call the kernel_thread if it scheduled.
@@ -230,7 +231,11 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+
+	/********** P1 priority: 추가 코드 - 시작 **********/
 	test_max_priority(); // P1 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해
+
+	/********** P1 priority: 추가 코드 - 끝 **********/
 
 	return tid;
 }
@@ -247,21 +252,6 @@ void thread_block(void)
 	ASSERT(intr_get_level() == INTR_OFF);
 	thread_current()->status = THREAD_BLOCKED;
 	schedule();
-}
-
-// P1 priority: 우선순위 비교 (내림차순 정렬을 위한)
-// 우선순위가 같은 경우도 추가함 (return 2)
-bool cmp_priority(const struct list_elem *a,
-				  const struct list_elem *b,
-				  void *aux)
-{
-	int a_priority = list_entry(a, struct thread, elem)->priority;
-	int b_priority = list_entry(b, struct thread, elem)->priority;
-
-	if (a_priority > b_priority) // 부등호 "=" 넣었다가 fifo 실패 (선입선출!!!)
-		return true;
-	else
-		return false;
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -281,95 +271,14 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	// list_push_back(&ready_list, &t->elem);
-	// P1 priority: 우선 순위 정렬에 맞춰 리스트에 삽입
-	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+
+	/********** P1 priority: 추가 코드 - 시작 **********/
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL); // P1 priority: 우선 순위 정렬에 맞춰 리스트에 삽입
+
+	/********** P1 priority: 추가 코드 - 끝 **********/
+
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
-}
-
-// P1 alarm: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
-static bool cmp_wakeup_tick(const struct list_elem *a,
-							const struct list_elem *b,
-							void *aux)
-{
-	int64_t a_wakeup_t = list_entry(a, struct thread, elem)->wakeup_tick;
-	int64_t b_wakeup_t = list_entry(b, struct thread, elem)->wakeup_tick;
-	return (a_wakeup_t < b_wakeup_t);
-}
-
-// P1 alarm: 주어진 ticks를 global tick으로 저장하기
-void update_next_tick_to_awake(int64_t ticks)
-{
-	next_tick_to_awake = ticks;
-}
-
-// P1 alarm: global tick 반환하기
-int64_t get_next_tick_to_awake(void)
-{
-	return next_tick_to_awake;
-}
-
-// P1 alarm: 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음
-// 참고: https://poalim.tistory.com/28
-void thread_sleep(int64_t ticks)
-{
-	struct thread *cur;
-	enum intr_level old_level;
-
-	old_level = intr_disable(); // 인터럽트 off → 지금 스레드 고정
-	cur = thread_current();		// 현재 스레드
-
-	ASSERT(cur != idle_thread);
-
-	cur->wakeup_tick = ticks; // 일어날 시간; local tick
-
-	// P1 alarm: 쓰레드가 정렬된 순서로 리스트 안에 위치하도록
-	list_insert_ordered(&sleep_list, &cur->elem, cmp_wakeup_tick, NULL);
-
-	// ###IMPR### P1: 최소 wakeup_tick 찾기
-	struct list_elem *e = list_begin(&sleep_list);
-	struct thread *t = list_entry(e, struct thread, elem);
-	update_next_tick_to_awake(t->wakeup_tick);
-
-	thread_block(); // block 상태로 변경
-
-	intr_set_level(old_level); // 인터럽트 on
-
-	/* if the current thread is not idle thread,
-	change the state of the caller thread to BLOCKED,
-	store the local tick to wake up,
-	update the global tick if necessary,
-	and call schedule() */
-	/* When you manipulate thread list, disable interrupt! */
-}
-
-// P1 alarm: 일어날 쓰레드를 깨워서 슬립큐에서 제거하고 레디큐에 넣기
-// 참고: https://poalim.tistory.com/28
-void thread_wakeup(int64_t ticks)
-{
-	// For the threads to wake up, remove them from the sleep queue and insert it
-	// to the ready_list.(Don’t forget to change the state of the thread from
-	// sleep to ready!!!)
-
-	struct list_elem *e = list_begin(&sleep_list);
-
-	while (e != list_end(&sleep_list)) // 슬립 리스트의 마지막 원소에 도달할때까지
-	{
-		struct thread *t = list_entry(e, struct thread, elem);
-
-		if (t->wakeup_tick <= ticks) // 스레드가 일어날 시간이 되었는지 확인
-		{
-			e = list_remove(e); // sleep list 에서 제거
-			thread_unblock(t);	// 스레드 unblock
-		}
-		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
-		// 괄호 때문에 에러 났었음
-		{
-			update_next_tick_to_awake(t->wakeup_tick);
-			break;
-		}
-	}
 }
 
 /* Returns the name of the running thread. */
@@ -433,56 +342,17 @@ void thread_yield(void)
 
 	old_level = intr_disable(); // 인터럽트 off
 	if (curr != idle_thread)
+	{
+		/********** P1 priority: 추가 코드 - 시작 **********/
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL); // P1 priority: 우선순위 정렬에 맞춰 리스트에 삽입
-	do_schedule(THREAD_READY);											   // 러닝 스레드가 레디 상태로 바뀌고, 레디 리스트 삽입
-	intr_set_level(old_level);											   // 인터럽트 다시 받겠다
-}
 
-// P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
-void test_max_priority(void)
-{
-	/* =========================== 수정코드 시작 - OK ===================================== */
-	// 슬립 리스트가 비어 있지 않고,
-	// 현재의 스레드의 우선순위 < 슬립 리스트의 첫번째 원소의 우선순위
-	// 인터럽트 처리 중이 아닐 때 (!intr_context())
-	// 위의 조건을 모두 만족할 때 thread_yield();
-
-	// 수정한 거
-	// ==cmp priority를 쓸건지, 직접 비교할건지? == -> 직접 비교로 바꿔서 에러 해결함(아래4번)
-	// 1. cur 을 thread_current로 바로 받음 (중간에 현재 쓰레드 바뀔까봐 -> 상관 없었다)★
-	// 2. 리스트 엠티 확인
-	// 3. 레디리스트의 첫째를 변수로 저장 안하고 바로 받음 (중간에 레디 리스트 첫째가 바뀔까봐 -> 상관 없었따)★
-	// 4. cmp_priority 함수 사용 안함 (함수로 넘겨주면서 바뀌거나, 등호 때문인듯)★★★ 이놈이 원인
-	// 5. begin -> front로 바꿔 써봄 (차이 없었다)
-
-	struct thread *cur = thread_current();
-	struct list_elem *ready_begin = list_begin(&ready_list);
-
-	if (list_empty(&ready_list))
-		return;
-
-	if (cur->priority >= list_entry(ready_begin, struct thread, elem)->priority)
-		return;
-
-	if (intr_context()) // P2 에러 방지를 위해 추가
-		return;
-
-	thread_yield();
-	/* =========================== 수정코드 끝 ===================================== */
+		/********** P1 priority: 추가 코드 - 끝 **********/
+	}
+	do_schedule(THREAD_READY); // 러닝 스레드가 레디 상태로 바뀌고, 레디 리스트 삽입
+	intr_set_level(old_level); // 인터럽트 다시 받겠다
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-// P1 Priority: 도네이션을 고려하여 우선순위 지정
-void thread_set_priority(int new_priority)
-{
-	// struct thread *cur = thread_current();
-	// cur->priority = new_priority;
-	// test_max_priority();
-	thread_current()->origin_priority = new_priority;
-	refresh_priority();
-	// thread_priority_preemption();
-	test_max_priority();
-}
 
 /* Returns the current thread's priority. */
 int thread_get_priority(void)
@@ -572,8 +442,6 @@ kernel_thread(thread_func *function, void *aux)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
-// 쓰레드 초기화: block 상태
-// P1 priority: priority donation을 위한 자료구조를 초기화하라
 static void
 init_thread(struct thread *t, const char *name, int priority)
 {
@@ -582,7 +450,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	ASSERT(name != NULL);
 
 	memset(t, 0, sizeof *t);
-	t->status = THREAD_BLOCKED;
+	t->status = THREAD_BLOCKED; // 쓰레드 초기화: block 상태
+
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
@@ -599,7 +468,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	// sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
 	t->exit_status = 0; // exit_status 값 초기화 (몇으로?)
 	t->load_status = 0; // load_status 값 초기화 (몇으로?)
-	t->next_fd = 2; // `fdt`의 비어있는 다음 `fd`를 가리키는 필드
+	t->next_fd = 2;		// `fdt`의 비어있는 다음 `fd`를 가리키는 필드
 
 	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
@@ -794,12 +663,147 @@ allocate_tid(void)
 	return tid;
 }
 
-/* donate */
-// void thread_priority_preemption(void)
-// {
-// 	if (!list_empty(&ready_list) && thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
-// 		thread_yield();
-// }
+/*************** P1 priority: 추가한 함수 - 시작 ***************/
+
+// P1 alarm: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
+static bool cmp_wakeup_tick(const struct list_elem *a,
+							const struct list_elem *b,
+							void *aux)
+{
+	int64_t a_wakeup_t = list_entry(a, struct thread, elem)->wakeup_tick;
+	int64_t b_wakeup_t = list_entry(b, struct thread, elem)->wakeup_tick;
+	return (a_wakeup_t < b_wakeup_t);
+}
+
+// P1 alarm: 주어진 ticks를 global tick으로 저장하기
+void update_next_tick_to_awake(int64_t ticks)
+{
+	next_tick_to_awake = ticks;
+}
+
+// P1 alarm: global tick 반환하기
+int64_t get_next_tick_to_awake(void)
+{
+	return next_tick_to_awake;
+}
+
+// P1 alarm: 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음
+// 참고: https://poalim.tistory.com/28
+void thread_sleep(int64_t ticks)
+{
+	struct thread *cur;
+	enum intr_level old_level;
+
+	old_level = intr_disable(); // 인터럽트 off → 지금 스레드 고정
+	cur = thread_current();		// 현재 스레드
+
+	ASSERT(cur != idle_thread);
+
+	cur->wakeup_tick = ticks; // 일어날 시간; local tick
+
+	// P1 alarm: 쓰레드가 정렬된 순서로 리스트 안에 위치하도록
+	list_insert_ordered(&sleep_list, &cur->elem, cmp_wakeup_tick, NULL);
+
+	// ###IMPR### P1: 최소 wakeup_tick 찾기
+	struct list_elem *e = list_begin(&sleep_list);
+	struct thread *t = list_entry(e, struct thread, elem);
+	update_next_tick_to_awake(t->wakeup_tick);
+
+	thread_block(); // block 상태로 변경
+
+	intr_set_level(old_level); // 인터럽트 on
+
+	/* if the current thread is not idle thread,
+	change the state of the caller thread to BLOCKED,
+	store the local tick to wake up,
+	update the global tick if necessary,
+	and call schedule() */
+	/* When you manipulate thread list, disable interrupt! */
+}
+
+// P1 alarm: 일어날 쓰레드를 깨워서 슬립큐에서 제거하고 레디큐에 넣기
+// 참고: https://poalim.tistory.com/28
+void thread_wakeup(int64_t ticks)
+{
+	// For the threads to wake up, remove them from the sleep queue and insert it
+	// to the ready_list.(Don’t forget to change the state of the thread from
+	// sleep to ready!!!)
+
+	struct list_elem *e = list_begin(&sleep_list);
+
+	while (e != list_end(&sleep_list)) // 슬립 리스트의 마지막 원소에 도달할때까지
+	{
+		struct thread *t = list_entry(e, struct thread, elem);
+
+		if (t->wakeup_tick <= ticks) // 스레드가 일어날 시간이 되었는지 확인
+		{
+			e = list_remove(e); // sleep list 에서 제거
+			thread_unblock(t);	// 스레드 unblock
+		}
+		else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
+		// 괄호 때문에 에러 났었음
+		{
+			update_next_tick_to_awake(t->wakeup_tick);
+			break;
+		}
+	}
+}
+
+// P1 priority: 우선순위 비교 (내림차순 정렬을 위한)
+// 우선순위가 같은 경우도 추가함 (return 2)
+bool cmp_priority(const struct list_elem *a,
+				  const struct list_elem *b,
+				  void *aux)
+{
+	int a_priority = list_entry(a, struct thread, elem)->priority;
+	int b_priority = list_entry(b, struct thread, elem)->priority;
+
+	if (a_priority > b_priority) // 부등호 "=" 넣었다가 fifo 실패 (선입선출!!!)
+		return true;
+	else
+		return false;
+}
+
+// P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
+void test_max_priority(void)
+{
+	/* =========================== 수정코드 시작 - OK ===================================== */
+	// 슬립 리스트가 비어 있지 않고,
+	// 현재의 스레드의 우선순위 < 슬립 리스트의 첫번째 원소의 우선순위
+	// 인터럽트 처리 중이 아닐 때 (!intr_context())
+	// 위의 조건을 모두 만족할 때 thread_yield();
+
+	// 수정한 거
+	// ==cmp priority를 쓸건지, 직접 비교할건지? == -> 직접 비교로 바꿔서 에러 해결함(아래4번)
+	// 1. cur 을 thread_current로 바로 받음 (중간에 현재 쓰레드 바뀔까봐 -> 상관 없었다)★
+	// 2. 리스트 엠티 확인
+	// 3. 레디리스트의 첫째를 변수로 저장 안하고 바로 받음 (중간에 레디 리스트 첫째가 바뀔까봐 -> 상관 없었따)★
+	// 4. cmp_priority 함수 사용 안함 (함수로 넘겨주면서 바뀌거나, 등호 때문인듯)★★★ 이놈이 원인
+	// 5. begin -> front로 바꿔 써봄 (차이 없었다)
+
+	struct thread *cur = thread_current();
+	struct list_elem *ready_begin = list_begin(&ready_list);
+
+	if (list_empty(&ready_list))
+		return;
+
+	if (cur->priority >= list_entry(ready_begin, struct thread, elem)->priority)
+		return;
+
+	if (intr_context()) // P2 에러 방지를 위해 추가
+		return;
+
+	thread_yield();
+	/* =========================== 수정코드 끝 ===================================== */
+}
+
+// P1 Priority: 도네이션을 고려하여 우선순위 지정
+void thread_set_priority(int new_priority)
+{
+	thread_current()->origin_priority = new_priority;
+	refresh_priority();
+	test_max_priority();
+}
 
 bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
@@ -845,3 +849,5 @@ void remove_with_lock(struct lock *lock)
 			list_remove(&t->multiple_donation_elem);
 	}
 }
+
+/*************** P1 priority: 추가한 함수 - 시작 ***************/

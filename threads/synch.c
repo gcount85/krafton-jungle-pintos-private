@@ -72,7 +72,6 @@ void sema_down(struct semaphore *sema)
 	// 세마포어의 value가 0인 경우(공유자원 접근 불가), cur thread를 block
 	while (sema->value == 0)
 	{
-		// list_push_back(&sema->waiters, &thread_current()->elem); // 원래코드
 		// 세마포어 대기자 명단에 러닝 쓰레드를 우선순위에 맞추어 정렬하여 삽입
 		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
 
