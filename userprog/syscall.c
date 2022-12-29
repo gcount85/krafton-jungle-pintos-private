@@ -53,7 +53,8 @@ void syscall_init(void)
 /******* P2 syscall: TODO The main system call interface & body *******/
 /* ***** 중요한 점 ******
  * 1. syscall-nr.h 에서 번호 확인
- * 2. 유저가 준 포인터 에러처리; (void *)0 같은 포인터 넘겨주는 경우 등 */
+ * 2. 유저가 준 포인터 에러처리; (void *)0 같은 포인터 넘겨주는 경우 등
+ * (2번의 경우 포인터를 받는 함수들만 check_address 만들어서 확인하기) */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
 	// TODO: Your implementation goes here.
@@ -108,8 +109,18 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	printf("system call!\n");
 }
 
+// P2 sys call: 유저가 준 포인터가 유효한 지 확인
+void check_address(void *addr)
+{
+	if (!addr || !is_user_vaddr(addr))
+	{
+		exit(-1);
+	}
+}
+
 /* P2 syscall: sys call body
- * 다 만들고 헤더에 추가하기 */
+ * 다 만들고 헤더에 추가하기
+ *  */
 void halt(void)
 {
 	power_off();
@@ -124,6 +135,7 @@ void exit(int status)
 
 tid_t exec(const char *cmd_line)
 {
+	check_address(cmd_line);
 }
 
 int wait(tid_t pid)
@@ -133,6 +145,8 @@ int wait(tid_t pid)
 // P2 sys call; `initial_size`를 가진 파일을 만듦
 bool create(const char *file, unsigned initial_size)
 {
+	check_address(file);
+
 	if (filesys_create(file, initial_size))
 	{
 		return true;
@@ -146,6 +160,8 @@ bool create(const char *file, unsigned initial_size)
 // P2 sys call; `file`이라는 이름을 가진 파일 삭제
 bool remove(const char *file)
 {
+	check_address(file);
+
 	if (filesys_remove(file))
 	{
 		return true;
@@ -159,6 +175,8 @@ bool remove(const char *file)
 // P2 sys call: `file` 안의 path에 있는 file open + fd 반환
 fd open(const char *file)
 {
+	check_address(file);
+
 	struct thread *cur = thread_current();
 	int i = 2;
 	while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
@@ -170,7 +188,9 @@ fd open(const char *file)
 		}
 
 		if (i == OPEN_MAX)
+		{
 			return -1;
+		}
 
 		i++;
 	}
@@ -182,7 +202,9 @@ int filesize(int fd)
 	struct thread *cur = thread_current();
 
 	if (fd < 2 || cur->fdt[fd] == 0)
+	{
 		return -1;
+	}
 
 	return file_length(cur->fdt[fd]);
 }
@@ -190,10 +212,14 @@ int filesize(int fd)
 // P2 sys call: fd`로 open 되어 있는 파일로부터 `size` 바이트를 읽어내 `buffer`에 담음 + 실제로 읽어낸 바이트 반환
 int read(int fd, void *buffer, unsigned size)
 {
+	check_address(buffer);
+
 	struct thread *cur = thread_current();
 
 	if (fd < 0 || cur->fdt[fd] == 0)
+	{
 		return -1;
+	}
 
 	if (fd == 0)
 	{
@@ -209,13 +235,19 @@ int read(int fd, void *buffer, unsigned size)
 // P2 sys call: `buffer`에 담긴 `size` 바이트를 open file `fd`에 쓰기 + 실제로 쓰인 바이트의 숫자를 반환
 int write(int fd, const void *buffer, unsigned size)
 {
+	check_address(buffer);
+
 	struct thread *cur = thread_current();
 
 	if (fd < 0 || cur->fdt[fd] == 0)
+	{
 		return -1;
+	}
 
-	if (read(cur->fdt[fd], buffer, size) == 0) // 파일의 끝인 경우 에러 
+	if (read(cur->fdt[fd], buffer, size) == 0) // 파일의 끝인 경우 에러
+	{
 		return -1;
+	}
 
 	if (fd == 1)
 	{
@@ -228,24 +260,38 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 }
 
+// P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈
 void seek(int fd, unsigned new_position)
 {
 	struct thread *cur = thread_current();
 
 	if (fd < 2 || cur->fdt[fd] == 0)
+	{
 		return;
+	}
 
 	file_seek(cur->fdt[fd], new_position);
 }
 
+// P2 sys call: open file `fd`에서 읽히거나 적혀야 하는 다음 바이트의 포지션을 반환
 unsigned tell(int fd)
 {
-	file_tell();
+	struct thread *cur = thread_current();
+
+	if (fd < 2 || cur->fdt[fd] == 0)
+	{
+		return;
+	}
+	return file_tell(cur->fdt[fd]);
 }
 
 void close(int fd)
 {
 	struct thread *cur = thread_current();
+	if (fd < 2 || cur->fdt[fd] == 0)
+	{
+		return;
+	}
 	file_close(cur->fdt[fd]);
 	cur->fdt[fd] = 0;
 }
