@@ -6,18 +6,21 @@
 // P2 syscall: filesys_lock 구조체를 위한 헤더 추가 끝 - unsure
 
 void syscall_init(void);
-void syscall_handler(struct intr_frame *f UNUSED);
 
-/********* P2 syscall: 프로토타입 선언 *********/
+/**************** P2 syscall: 프로토타입 선언 ****************/
+// P2 syscall: 파일에 대한 경쟁조건을 피하기 위한 글로벌 락
+typedef int tid_t;
+struct lock filesys_lock;
+
 // P2 syscall: 시스템 콜 함수 구현
-void check_address(void *addr);
 void halt(void);
 void exit(int status);
-tid_t exec(const char *cmd_line);
+int fork(const char *thread_name);
+int exec(const char *cmd_line);
 int wait(tid_t pid);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
-fd open(const char *file);
+int open(const char *file);
 int filesize(int fd);
 int read(int fd, void *buffer, unsigned size);
 int write(int fd, const void *buffer, unsigned size);
@@ -25,9 +28,6 @@ void seek(int fd, unsigned new_position);
 unsigned tell(int fd);
 void close(int fd);
 
-// P2 syscall: 파일에 대한 경쟁조건을 피하기 위한 글로벌 락
-struct lock filesys_lock;
-
-/********* P2 syscall: 프로토타입 선언 - 끝 *********/
+/**************** P2 syscall: 프로토타입 선언 - 끝 ****************/
 
 #endif /* userprog/syscall.h */

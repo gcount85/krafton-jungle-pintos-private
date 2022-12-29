@@ -117,12 +117,12 @@ struct thread
 	struct thread *parent_process;	// Pointer to parent process
 	struct list siblings_list;		// Pointers to the sibling.
 	struct list_elem child_list;	// Pointers to the children:
-	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
-	struct semaphore sema_for_exec; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	// struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	// struct semaphore sema_for_exec; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
 	int exit_status;				// 스레드의 종료 상태를 나타냄
 	int load_status;				// 스레드의 로드 상태를 나타냄
 	struct file **fdt;				// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)
-	int next_fd;					// 다음 fd 인덱스
+	int next_fd;					// 다음 fd 인덱스 (사용 안 하고 있음 )
 	// ****************** P2: 추가한 필드 - 끝 ********************
 
 	/* Shared between thread.c and synch.c. */

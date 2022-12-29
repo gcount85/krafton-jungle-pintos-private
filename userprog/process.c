@@ -453,7 +453,7 @@ load(const char *file_name, struct intr_frame *if_)
 	// argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
 	argument_stack(argv, argc, if_);									  
-	hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
+	// hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
 	// **************** P2 arg passing: args passing - 끝 ********************** //
 
 	success = true;

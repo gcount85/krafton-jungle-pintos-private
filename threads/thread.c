@@ -19,7 +19,6 @@
 #include "lib/stdio.h"
 /*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
 
-
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -212,8 +211,10 @@ tid_t thread_create(const char *name, int priority,
 	t->fdt = palloc_get_page(PAL_ZERO); // zeroed 4KB 페이지 할당
 	if (t->fdt == NULL)
 		return TID_ERROR;
-	t->fdt[STDIN_FILENO] = stdin;  
-	t->fdt[STDOUT_FILENO] = stdout;
+	// t->fdt[STDIN_FILENO] = stdin;  // undeclared 에러
+	// t->fdt[STDOUT_FILENO] = stdout; // undeclared 에러
+	t->fdt[STDIN_FILENO] = 1;
+	t->fdt[STDOUT_FILENO] = 2;
 	/********** P2 sys call: fdt 초기화 코드 - 끝 **********/
 
 	/* Call the kernel_thread if it scheduled.
@@ -594,11 +595,13 @@ init_thread(struct thread *t, const char *name, int priority)
 	/***************** P1 donation: 초기화 추가 - 끝 *****************/
 
 	/***************** P2 sys call: 초기화 추가*************************/
-	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
-	sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
-	t->exit_status = 0;				 // exit_status 값 초기화 (몇으로?)
-	t->load_status = 0;				 // load_status 값 초기화 (몇으로?)
-									 /***************** P2 sys call: 초기화 추가 - 끝*****************/
+	// sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
+	// sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
+	t->exit_status = 0; // exit_status 값 초기화 (몇으로?)
+	t->load_status = 0; // load_status 값 초기화 (몇으로?)
+	t->next_fd = 2; // `fdt`의 비어있는 다음 `fd`를 가리키는 필드
+
+	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
