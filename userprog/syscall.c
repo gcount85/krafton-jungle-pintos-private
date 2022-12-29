@@ -31,7 +31,7 @@ void syscall_handler(struct intr_frame *);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 /***************** P2 syscall: 매크로 추가 *****************/
-#define STDIN 1  // P2 sys call: FDT의 FD 0 매크로 선언
+#define STDIN 1	 // P2 sys call: FDT의 FD 0 매크로 선언
 #define STDOUT 2 // P2 sys call: FDT의 FD 1 매크로 선언
 /***************** P2 syscall: 매크로 추가 - 끝 *****************/
 
@@ -240,6 +240,7 @@ int filesize(int fd)
 int read(int fd, void *buffer, unsigned size)
 {
 	check_address(buffer);
+	check_address((uint8_t *)buffer + size - 1); // 버퍼 끝 사이즈도 확인하기 - 추가
 
 	struct thread *cur = thread_current();
 
@@ -263,7 +264,7 @@ int write(int fd, const void *buffer, unsigned size)
 
 	struct thread *cur = thread_current();
 
-	if (fd < 0 || cur->fdt[fd] == NULL || cur->fdt[fd] == STDIN) // 에러조건문 추가 
+	if (fd < 0 || cur->fdt[fd] == NULL || cur->fdt[fd] == STDIN) // 에러조건문 추가
 	{
 		return -1;
 	}
