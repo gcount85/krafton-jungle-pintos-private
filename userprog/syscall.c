@@ -106,7 +106,7 @@ void syscall_handler(struct intr_frame *f)
 		close(f->R.rdi);
 		break;
 	default:
-		exit(-777);
+		exit(-1);
 	}
 	// printf("system call!\n");
 }
@@ -117,7 +117,7 @@ void check_address(void *addr)
 	struct thread *cur = thread_current();
 	if (!addr || !is_user_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
 	{
-		exit(-666);
+		exit(-1);
 	}
 }
 
