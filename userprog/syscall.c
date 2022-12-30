@@ -268,24 +268,27 @@ int write(int fd, const void *buffer, unsigned size)
 	check_address(buffer);
 
 	struct thread *cur = thread_current();
+	struct file *f = cur->fdt[fd];
+	off_t pos = &f-pos;
 
-	if (fd < 0 || cur->fdt[fd] == NULL || cur->fdt[fd] == STDIN) // 에러조건문 추가
+	if (fd < 0 || f == NULL || f == STDIN) // 에러조건문 추가
 	{
 		return -1;
 	}
 
-	if (read(fd, buffer, size) == 0) // 파일의 끝인 경우 에러
+	if (read(fd, buffer, size) == 0) // 파일의 끝인 경우 에러 (proj 4에서는 불필요할 수도)
 	{
 		return -1;
 	}
 
-	if (cur->fdt[fd] == STDOUT)
+	if (f == STDOUT)
 	{
 		putbuf(buffer, size);
 		return size;
 	}
 
-	return file_write(cur->fdt[fd], buffer, size);
+	// return file_write(f, buffer, size);
+	return file_write_at(f, buffer, size, 0); // 이 구문으로 하니 write-normal 통과 ?!-> f->pos 접근이 왜 안될까?
 }
 
 // P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈
