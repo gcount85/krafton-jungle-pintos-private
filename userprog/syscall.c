@@ -9,9 +9,9 @@
 #include "intrinsic.h"
 
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 시작 *******/
-#include "include/filesys/file.h"
-#include "include/filesys/filesys.h"
-#include "include/lib/kernel/stdio.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "lib/kernel/stdio.h"
 
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
@@ -269,17 +269,17 @@ int write(int fd, const void *buffer, unsigned size)
 
 	struct thread *cur = thread_current();
 	struct file *f = cur->fdt[fd];
-	off_t pos = &f-pos;
 
 	if (fd < 0 || f == NULL || f == STDIN) // 에러조건문 추가
 	{
 		return -1;
 	}
 
-	if (read(fd, buffer, size) == 0) // 파일의 끝인 경우 에러 (proj 4에서는 불필요할 수도)
-	{
-		return -1;
-	}
+	// 파일의 끝인 경우 에러 (proj 3에서 필요할 수 있는 에러 처리)
+	// if (read(fd, buffer, size) == 0) 
+	// {
+	// 	return -1;
+	// }
 
 	if (f == STDOUT)
 	{
@@ -287,8 +287,8 @@ int write(int fd, const void *buffer, unsigned size)
 		return size;
 	}
 
-	// return file_write(f, buffer, size);
-	return file_write_at(f, buffer, size, 0); // 이 구문으로 하니 write-normal 통과 ?!-> f->pos 접근이 왜 안될까?
+	return file_write(f, buffer, size); // 내 원래 코드
+
 }
 
 // P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈

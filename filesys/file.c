@@ -3,13 +3,8 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
-/* An open file. */
-struct file
-{
-	struct inode *inode; /* File's inode. */
-	off_t pos;			 /* Current position. */
-	bool deny_write;	 /* Has file_deny_write() been called? */
-};
+/********* P2 syscall: file 구조체 정의 include/filesys/file.h 로 옮김 *********/
+
 
 /* Opens a file for the given INODE, of which it takes ownership,
  * and returns the new file.  Returns a null pointer if an
