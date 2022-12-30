@@ -216,13 +216,6 @@ tid_t thread_create(const char *name, int priority,
 	t->fdt[STDIN_FILENO] = 1;
 	t->fdt[STDOUT_FILENO] = 2;
 
-	// 시스템 콜 동기화 & 프로세스 계층을 위한 초기화 
-	// t->parent_process = thread_current(); // 부모 가리키는 포인터 추가 
-	t->exit_status = 0; 
-	t->load_status = 0;  
-	// sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
-	// sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
-
 	/********** P2 sys call: 초기화 코드 - 끝 **********/
 
 	/* Call the kernel_thread if it scheduled.
@@ -474,7 +467,13 @@ init_thread(struct thread *t, const char *name, int priority)
 	// t->next_fd = 2;				  // `fdt`의 비어있는 다음 `fd`를 가리키는 필드 (사용안함)
 	// list_init(&t->siblings_list); // 형제 리스트 초기화
 	// list_init(&t->child_elem);	  // 자식 리스트 초기화? elem을 어떻게 초기화?
-
+	t->exit_status = 0;
+	t->load_status = 0;
+	
+	// 시스템 콜 동기화 & 프로세스 계층을 위한 초기화
+	// t->parent_process = thread_current(); // 부모 가리키는 포인터 추가
+	// sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
+	// sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
 	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
 

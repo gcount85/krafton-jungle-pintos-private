@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 
 /*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
-// #include "threads/synch.h" // thread 구조체의 세마포어 필드를 위함
+// #include "threads/synch.h" // thread 구조체의 세마포어 필드, 락 관련 함수를 위함
 
 /*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
 
