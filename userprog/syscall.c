@@ -132,7 +132,10 @@ void halt(void)
 
 int fork(const char *thread_name)
 {
-	thread_exit();
+	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
+	// if fork 실패: return TID_ERROR
+
+	// thread_exit();
 }
 
 void exit(int status)

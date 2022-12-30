@@ -8,9 +8,9 @@
 void syscall_init(void);
 
 /**************** P2 syscall: 프로토타입 선언 ****************/
-// P2 syscall: 파일에 대한 경쟁조건을 피하기 위한 글로벌 락
 typedef int tid_t;
-struct lock filesys_lock;
+struct lock filesys_lock; // P2 syscall: 파일에 대한 경쟁조건을 피하기 위한 글로벌 락
+
 
 // P2 syscall: 시스템 콜 함수 구현
 void halt(void);

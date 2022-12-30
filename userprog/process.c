@@ -213,7 +213,7 @@ int process_wait(tid_t child_tid UNUSED)
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 	// P2 arg passing: argument passing make check을 위한
-	for (int i = 0; i < 2000000000; i++)
+	for (int i = 0; i < 1500000000; i++)
 	{
 		;
 	}
