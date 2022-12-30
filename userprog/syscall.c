@@ -11,7 +11,8 @@
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 시작 *******/
 #include "filesys/file.h"
 #include "filesys/filesys.h"
-#include "lib/kernel/stdio.h"
+// #include "lib/kernel/stdio.h"
+#include "userprog/process.h" // prcess wait 헤더 
 
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
@@ -154,7 +155,8 @@ int exec(const char *cmd_line)
 
 int wait(tid_t pid)
 {
-	thread_exit();
+	return process_wait(pid);
+	// thread_exit();
 }
 
 // P2 sys call; `initial_size`를 가진 파일을 만듦
@@ -320,6 +322,7 @@ unsigned tell(int fd)
 	return file_tell(cur->fdt[fd]);
 }
 
+// 러닝 스레드의 열린 파일 모두 닫음 
 void close(int fd)
 {
 	struct thread *cur = thread_current();

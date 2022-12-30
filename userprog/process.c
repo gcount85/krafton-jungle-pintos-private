@@ -19,6 +19,10 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "threads/malloc.h" // 이거 내가 추가해봄
+/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
+// #include "userprog/syscall.h"
+/********* P2 syscall: wait 관련 코드 추가 - 끝 *********/
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -186,12 +190,25 @@ int process_exec(void *f_name)
 	process_cleanup();
 
 	/* And then load the binary */
+	/********* P2 syscall: 추가 코드 - 시작 *********/
+	// sema_down(&thread_current()->sema_for_exec);
+	/********* P2 syscall: 추가 코드 - 끝 *********/
 	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
 	if (!success)
+	{
 		return -1; // 원래코드!!
+		/********* P2 syscall: 추가 코드 - 시작 *********/
+		// thread_exit();
+	}
+	// P2 syscall: load 성공 시 sema up 수행문 추가
+	// else
+	// {
+	// sema_up(&thread_current()->sema_for_exec);
+	// }
+		/********* P2 syscall: 추가 코드 - 끝 *********/
 
 	/* Start switched process. */
 	do_iret(&_if);
@@ -218,17 +235,36 @@ int process_wait(tid_t child_tid UNUSED)
 		;
 	}
 	return -1;
+
+	/* child_tid를 이용하여 자식 프로세스의 디스크립터 검색
+	 * 자식 프로세스의 exit() 호출 발생
+	 * 		부모가 자식의 pid를 deallocate
+	 * 		tid의 세마포어를 위해 sema down for wait (이 시점에서 자식 프로세스 죽을 때까지 호출자 블락)
+	 * 		종료된 자식의 exit status 리턴  */
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 // P2 sys call: TODO
 void process_exit(void)
 {
-	struct thread *curr = thread_current();
+	struct thread *cur = thread_current();
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
+	// sema_up(&cur->sema_for_wait);
+	// if (&cur->lock_address)
+	// {
+	// 	lock_release(&cur->lock_address);
+	// }
+
+	// 프로세스의 모든 열린 파일 close
+	// for (int i = 0; i < OPEN_MAX + 1, i++;)
+	// {
+	// 	close(cur->fdt[i]);
+	// }
+	/********* P2 syscall: wait 관련 코드 추가 - 끝 *********/
 
 	process_cleanup();
 }
@@ -374,6 +410,9 @@ load(const char *file_name, struct intr_frame *if_)
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
+	/********* P2 syscall: 파일 권한 코드 추가 - 시작 *********/
+	// file_deny_write(file); // 파일의 쓰기 권한 닫음
+	/********* P2 syscall: 파일 권한 코드 추가 - 끝 *********/
 
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
@@ -452,7 +491,7 @@ load(const char *file_name, struct intr_frame *if_)
 	/* TODO : Implement argument passing(see project2 / argument_passing.html). */
 	// argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-	argument_stack(argv, argc, if_);									  
+	argument_stack(argv, argc, if_);
 	// hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
 	// **************** P2 arg passing: args passing - 끝 ********************** //
 
