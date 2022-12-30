@@ -7,12 +7,13 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
-// P2 syscall: syscall interface를 위한 헤더 추가 - 시작
+
+/******* P2 syscall: syscall interface를 위한 헤더 추가 - 시작 *******/
 #include "include/filesys/file.h"
 #include "include/filesys/filesys.h"
 #include "include/lib/kernel/stdio.h"
 
-// P2 syscall: syscall interface를 위한 헤더 추가 - 끝
+/******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -196,6 +197,10 @@ int open(const char *file)
 	{
 		if (cur->fdt[i] == 0)
 		{
+			if (filesys_open(file) == NULL)
+			{
+				return -1;
+			}
 			cur->fdt[i] = filesys_open(file);
 			return i;
 		}
