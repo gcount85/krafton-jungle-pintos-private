@@ -12,7 +12,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "lib/kernel/stdio.h"
-#include "userprog/process.h" // exec 헤더 
+#include "userprog/process.h" // exec 헤더
 
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
@@ -150,13 +150,13 @@ void exit(int status)
 int exec(const char *cmd_line)
 {
 	check_address(cmd_line);
-	
+
 	/********* P2 syscall: 추가 코드 - 시작 *********/
 	int tid;
 	sema_down(&thread_current()->sema_for_exec);
 	tid = process_create_initd(cmd_line);
 	sema_up(&thread_current()->parent_process->sema_for_exec); // P2 syscall: load 성공 시 sema up 수행문 추가
-	
+
 	return tid;
 	/********* P2 syscall: 추가 코드 - 끝 *********/
 	// thread_exit();
@@ -168,19 +168,15 @@ int wait(tid_t pid)
 	thread_exit();
 }
 
-// P2 sys call; `initial_size`를 가진 파일을 만듦 
+// P2 sys call; `initial_size`를 가진 파일을 만듦
 bool create(const char *file, unsigned initial_size)
 {
 	check_address(file);
 
-	if (filesys_create(file, initial_size))
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	lock_acquire(&filesys_lock);
+	bool bool_created = filesys_create(file, initial_size);
+	lock_release(&filesys_lock);
+	return bool_created;
 }
 
 // P2 sys call; `file`이라는 이름을 가진 파일 삭제
@@ -188,14 +184,10 @@ bool remove(const char *file)
 {
 	check_address(file);
 
-	if (filesys_remove(file))
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	lock_acquire(&filesys_lock);
+	bool bool_removed = filesys_remove(file);
+	lock_release(&filesys_lock);
+	return bool_removed;
 }
 
 // P2 sys call: `file` 안의 path에 있는 file open + fd 반환
@@ -207,25 +199,28 @@ int open(const char *file)
 
 	/* 반복문으로 비어있는 곳 찾기(next_fd 필드 사용X) */
 	int i = 2;
-	while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	// while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	while (i <= OPEN_MAX) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
 	{
-		if (cur->fdt[i] == 0)
+		if (cur->fdt[i] != 0)
 		{
-			if (filesys_open(file) == NULL)
+			continue;
+		}
+		else
+		{
+			lock_acquire(&filesys_lock);
+			struct file *f = filesys_open(file);
+			lock_release(&filesys_lock);
+			if (f == NULL)
 			{
 				return -1;
 			}
-			cur->fdt[i] = filesys_open(file);
+			cur->fdt[i] = f;
 			return i;
 		}
-
-		if (i == OPEN_MAX)
-		{
-			return -1;
-		}
-
 		i++;
 	}
+	return -1;
 
 	/* next_fd를 사용하기 - 시작 */
 	// int openfd = cur->next_fd;
@@ -290,7 +285,7 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 
 	// 파일의 끝인 경우 에러 (proj 3에서 필요할 수 있는 에러 처리)
-	// if (read(fd, buffer, size) == 0) 
+	// if (read(fd, buffer, size) == 0)
 	// {
 	// 	return -1;
 	// }
@@ -302,7 +297,6 @@ int write(int fd, const void *buffer, unsigned size)
 	}
 
 	return file_write(f, buffer, size); // 내 원래 코드
-
 }
 
 // P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈
@@ -331,7 +325,7 @@ unsigned tell(int fd)
 	return file_tell(cur->fdt[fd]);
 }
 
-// 러닝 스레드의 열린 파일 모두 닫음 
+// 러닝 스레드의 열린 파일 모두 닫음
 void close(int fd)
 {
 	struct thread *cur = thread_current();
