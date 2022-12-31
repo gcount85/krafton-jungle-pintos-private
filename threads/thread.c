@@ -221,7 +221,7 @@ tid_t thread_create(const char *name, int priority,
 	t->exit_status = 0;
 	t->load_status = 0;
 	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
-	sema_init(&t->sema_for_load, 0); // `exec()`을 위한 세마포어 초기화
+	sema_init(&t->sema_for_fork, 0); // `exec()`을 위한 세마포어 초기화
 	list_push_back(&(thread_current()->child), &(t->child_elem)); // 자식 리스트에 추가 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
 	// thread_current()->child_elem = t->elem;
 

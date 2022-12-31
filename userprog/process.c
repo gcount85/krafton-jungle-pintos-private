@@ -82,8 +82,8 @@ static void initd(void *f_name)
 
 	if (process_exec(f_name) < 0)
 		exit(-1); // 내가 작성
-		// thread_exit(); // 내가 작성
-		// PANIC("Fail to launch initd\n");
+				  // thread_exit(); // 내가 작성
+				  // PANIC("Fail to launch initd\n");
 
 	NOT_REACHED();
 }
@@ -93,8 +93,17 @@ static void initd(void *f_name)
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
 	/* Clone current thread to new thread.*/
-	return thread_create(name,
-						 PRI_DEFAULT, __do_fork, thread_current());
+	struct thread *parent = thread_current();
+	memcpy(&parent->parent_if, if_, sizeof(struct intr_frame));
+
+	tid_t pid = thread_create(name,
+							  PRI_DEFAULT, __do_fork, thread_current());
+	if (pid == TID_ERROR)
+		return TID_ERROR;
+
+	struct thread *child = get_child(pid);
+	sema_down(&child->sema_for_fork); // sema up이 do fork에서 이루어질때까지 다음 수행은 이루어지지 않음
+	return pid;
 }
 
 #ifndef VM
@@ -108,7 +117,13 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 	void *newpage;
 	bool writable;
 
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
+	if (is_kernel_vaddr(va))
+	{
+		return true;
+	}
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page(parent->pml4, va);
@@ -136,9 +151,9 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
  *       this function. */
 static void __do_fork(void *aux)
 {
-	struct intr_frame if_;
-	struct thread *parent = (struct thread *)aux;
-	struct thread *current = thread_current();
+	struct intr_frame if_;						  // 아마도 부모로부터 복사된 값을 받을 자식의 if?
+	struct thread *parent = (struct thread *)aux; // 부모
+	struct thread *current = thread_current();	  // 자식
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if;
 	bool succ = true;
@@ -192,18 +207,14 @@ int process_exec(void *f_name)
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-
 	/* We first kill the current context */
 	process_cleanup();
-
-
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
-
 
 	if (!success)
 	{
@@ -821,3 +832,21 @@ void argument_stack(char **argv, int argc, struct intr_frame *_if)
 	// memset(_if->rsp, 0, sizeof(char *));
 	/* ================Heruing 코드 - 끝 =========================== */
 }
+
+/********* P2 syscall: 추가한 코드 - 시작 *********/
+// 자식 리스트를 순회하며 tid가 pid인 스레드 반환
+struct thread *get_child(int pid)
+{
+	struct thread *current = thread_current();
+	struct list *child_list = &current->child;
+	for (struct list_elem *e = list_begin(child_list); e != list_end(child_list); e = list_next(e))
+	{
+		struct thread *t = list_entry(e, struct thread, child_elem);
+		if (t->tid == pid)
+		{
+			return t;
+		}
+	}
+	return NULL;
+}
+/********* P2 syscall: 추가한 코드 - 끝 *********/
