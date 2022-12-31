@@ -150,7 +150,18 @@ void exit(int status)
 int exec(const char *cmd_line)
 {
 	check_address(cmd_line);
-	thread_exit();
+	
+	/********* P2 syscall: 추가 코드 - 시작 *********/
+	sema_down(&thread_current()->sema_for_exec);
+	/********* P2 syscall: 추가 코드 -` 끝 *********/
+
+	process_create_initd(cmd_line);
+
+	/********* P2 syscall: 추가 코드 - 시작 *********/
+	sema_up(&thread_current()->parent_process->sema_for_exec); // P2 syscall: load 성공 시 sema up 수행문 추가
+	/********* P2 syscall: 추가 코드 -` 끝 *********/
+	
+	// thread_exit();
 }
 
 int wait(tid_t pid)

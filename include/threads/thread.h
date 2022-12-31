@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 
 /*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
-// #include "threads/synch.h" // thread 구조체의 세마포어 필드, 락 관련 함수를 위함
+#include "threads/synch.h" // thread 구조체의 세마포어 필드를 위함
 
 /*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
 
@@ -35,10 +35,9 @@ typedef int tid_t;
 #define PRI_MAX 63	   /* Highest priority. */
 
 /*************** P2 sys call: OPEN_MAX 값 정의 ***************/
-#define FDT_PAGES 3	   
-#define OPEN_MAX (FDT_PAGES * (1 << 9))	   
+#define FDT_PAGES 3
+#define OPEN_MAX (FDT_PAGES * (1 << 9))
 /*************** P2 sys call: OPEN_MAX 값 정의 - 끝 ***************/
-
 
 /* A kernel thread or user process.
  *
@@ -114,11 +113,12 @@ struct thread
 	// ****************** P1: 추가한 필드 - 끝 *************************
 
 	// ****************** P2: 추가한 필드 *************************
-	// struct thread *parent_process;	// Pointer to parent process
-	// struct list siblings_list;		// Pointers to the sibling.
-	// struct list_elem child_elem;	// Pointers to the children:
-	// struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
-	// struct semaphore sema_for_exec; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct thread *parent_process; // Pointer to parent process
+	struct list siblings_list;	   // Pointers to the sibling.
+	// struct list child_list;	    // Pointers to the children list
+	struct list_elem child_elem;	// Pointers to the children list-elem
+	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_exec; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
 	int exit_status;				// 스레드의 종료 상태를 나타냄
 	int load_status;				// 스레드의 로드 상태를 나타냄
 	struct file **fdt;				// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)

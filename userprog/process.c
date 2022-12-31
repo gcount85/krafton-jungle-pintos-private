@@ -43,7 +43,8 @@ static void process_init(void)
  * The new thread may be scheduled (and may even exit)
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
- * Notice that THIS SHOULD BE CALLED ONCE. */
+ * Notice that THIS SHOULD BE CALLED ONCE.
+ * === process_excute */
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
@@ -64,6 +65,7 @@ tid_t process_create_initd(const char *file_name)
 	// 인수; 스레드 이름(문자열), 스레드 우선순위,
 	// 생성된 스레드가 실행할 함수 포인터, 그 함수에게 넘겨줄 인수
 	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -80,6 +82,7 @@ static void initd(void *f_name)
 
 	if (process_exec(f_name) < 0)
 		PANIC("Fail to launch initd\n");
+
 	NOT_REACHED();
 }
 
@@ -172,11 +175,14 @@ error:
 }
 
 /* Switch the current execution context to the f_name.
- * Returns -1 on fail. */
+ * Returns -1 on fail.
+ * === start_process */
 int process_exec(void *f_name)
 {
 	char *file_name = f_name;
 	bool success;
+
+
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -190,9 +196,7 @@ int process_exec(void *f_name)
 	process_cleanup();
 
 	/* And then load the binary */
-	/********* P2 syscall: 추가 코드 - 시작 *********/
-	// sema_down(&thread_current()->sema_for_exec);
-	/********* P2 syscall: 추가 코드 - 끝 *********/
+
 	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
@@ -200,15 +204,9 @@ int process_exec(void *f_name)
 	if (!success)
 	{
 		return -1; // 원래코드!!
-		/********* P2 syscall: 추가 코드 - 시작 *********/
-		// thread_exit();
 	}
-	// P2 syscall: load 성공 시 sema up 수행문 추가
-	// else
-	// {
-	// sema_up(&thread_current()->sema_for_exec);
-	// }
-		/********* P2 syscall: 추가 코드 - 끝 *********/
+
+
 
 	/* Start switched process. */
 	do_iret(&_if);
