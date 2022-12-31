@@ -241,13 +241,14 @@ int open(const char *file)
 int filesize(int fd)
 {
 	struct thread *cur = thread_current();
+	struct file *f = cur->fdt[fd];
 
-	if (fd < 2 || cur->fdt[fd] == 0)
+	if (fd < 2 || f == 0)
 	{
 		return -1;
 	}
 
-	return file_length(cur->fdt[fd]);
+	return file_length(f);
 }
 
 // P2 sys call: fd`로 open 되어 있는 파일로부터 `size` 바이트를 읽어내 `buffer`에 담음 + 실제로 읽어낸 바이트 반환
@@ -257,18 +258,19 @@ int read(int fd, void *buffer, unsigned size)
 	check_address((uint8_t *)buffer + size - 1); // 버퍼 끝 사이즈도 확인하기 - 추가
 
 	struct thread *cur = thread_current();
+	struct file *f = cur->fdt[fd];
 
-	if (fd < 0 || cur->fdt[fd] == NULL || cur->fdt[fd] == STDOUT)
+	if (fd < 0 || f == NULL || f == STDOUT)
 	{
 		return -1;
 	}
 
-	if (cur->fdt[fd] == STDIN)
+	if (f == STDIN)
 	{
 		return input_getc();
 	}
 
-	return file_read(cur->fdt[fd], buffer, size); // 0 반환 → 파일의 끝을 의미
+	return file_read(f, buffer, size); // 0 반환 → 파일의 끝을 의미
 }
 
 // P2 sys call: `buffer`에 담긴 `size` 바이트를 open file `fd`에 쓰기 + 실제로 쓰인 바이트의 숫자를 반환
@@ -278,6 +280,7 @@ int write(int fd, const void *buffer, unsigned size)
 
 	struct thread *cur = thread_current();
 	struct file *f = cur->fdt[fd];
+	off_t byte_written;
 
 	if (fd < 0 || f == NULL || f == STDIN) // 에러조건문 추가
 	{
@@ -296,7 +299,10 @@ int write(int fd, const void *buffer, unsigned size)
 		return size;
 	}
 
-	return file_write(f, buffer, size); // 내 원래 코드
+	lock_acquire(&filesys_lock);
+	byte_written = file_write(f, buffer, size); // 내 원래 코드
+	lock_release(&filesys_lock);
+	return byte_written;
 }
 
 // P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈
@@ -308,8 +314,9 @@ void seek(int fd, unsigned new_position)
 	{
 		return;
 	}
-
+	lock_acquire(&filesys_lock);
 	file_seek(cur->fdt[fd], new_position);
+	lock_release(&filesys_lock);
 }
 
 // P2 sys call: open file `fd`에서 읽히거나 적혀야 하는 다음 바이트의 포지션을 반환
@@ -329,12 +336,15 @@ unsigned tell(int fd)
 void close(int fd)
 {
 	struct thread *cur = thread_current();
-	if (fd < 2 || cur->fdt[fd] == 0)
+	struct file *f = cur->fdt[fd];
+	if (fd < 2 || f == 0)
 	{
 		return;
 	}
-	file_close(cur->fdt[fd]);
-	cur->fdt[fd] = 0;
+	lock_acquire(&filesys_lock);
+	file_close(f);
+	lock_release(&filesys_lock);
+	cur->fdt[fd] = 0; // 이거 f = 0; 으로 하면 에러남! 조심! 
 }
 /******* P2 syscall: TODO The main system call interface & body - 끝 *******/
 
