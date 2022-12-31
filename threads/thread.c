@@ -475,7 +475,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	// t->next_fd = 2;			  // `fdt`의 다음 빈 `fd`를 가리킴
 	// list_init(&t->child_list); // 자식 리스트 초기화 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
 	list_init(&t->siblings_list); // 형제 리스트 초기화
-	t->child_elem;	  // 자식 요소 선언
+	t->child_elem;				  // 자식 요소 선언
 
 	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
