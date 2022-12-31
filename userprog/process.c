@@ -81,7 +81,8 @@ static void initd(void *f_name)
 	process_init();
 
 	if (process_exec(f_name) < 0)
-		exit(-1);
+		exit(-1); // 내가 작성
+		// thread_exit(); // 내가 작성
 		// PANIC("Fail to launch initd\n");
 
 	NOT_REACHED();
@@ -183,8 +184,6 @@ int process_exec(void *f_name)
 	char *file_name = f_name;
 	bool success;
 
-
-
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -193,21 +192,23 @@ int process_exec(void *f_name)
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+
 	/* We first kill the current context */
 	process_cleanup();
 
-	/* And then load the binary */
 
+
+	/* And then load the binary */
 	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
+
+
 	if (!success)
 	{
-		return -1; // 원래코드!!
+		return -1;
 	}
-
-
 
 	/* Start switched process. */
 	do_iret(&_if);

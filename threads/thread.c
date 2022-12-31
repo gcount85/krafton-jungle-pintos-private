@@ -220,10 +220,10 @@ tid_t thread_create(const char *name, int priority,
 	t->parent_process = thread_current(); // 부모 가리키는 포인터 추가
 	t->exit_status = 0;
 	t->load_status = 0;
-	sema_init(&t->sema_for_exec, 0); // `exec()`을 위한 세마포어 초기화
 	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
-	// list_push_back(&thread_current()->child_list, &t->elem); // 자식 리스트에 추가 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
-	thread_current()->child_elem = t->elem;
+	sema_init(&t->sema_for_load, 0); // `exec()`을 위한 세마포어 초기화
+	list_push_back(&(thread_current()->child), &(t->child_elem)); // 자식 리스트에 추가 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
+	// thread_current()->child_elem = t->elem;
 
 	/********** P2 sys call: 초기화 코드 - 끝 **********/
 
@@ -473,10 +473,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	/***************** P1 donation: 초기화 추가 - 끝 *****************/
 
 	/***************** P2 sys call: 초기화 추가*************************/
-	// t->next_fd = 2;			  // `fdt`의 다음 빈 `fd`를 가리킴
-	// list_init(&t->child_list); // 자식 리스트 초기화 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
+	list_init(&(t->child)); // 자식 리스트 초기화 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
 	list_init(&t->siblings_list); // 형제 리스트 초기화
-	t->child_elem;				  // 자식 요소 선언
+
 
 	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }

@@ -13,6 +13,8 @@
 #include "filesys/filesys.h"
 #include "lib/kernel/stdio.h"
 #include "userprog/process.h" // exec 헤더
+#include "threads/palloc.h" // EXEC PALLOG GET PAGE 헤더
+#include <string.h> // strcpy를 위한?
 
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
@@ -152,14 +154,22 @@ int exec(const char *cmd_line)
 	check_address(cmd_line);
 
 	/********* P2 syscall: 추가 코드 - 시작 *********/
-	int tid;
-	sema_down(&thread_current()->sema_for_exec);
-	tid = process_create_initd(cmd_line);
-	sema_up(&thread_current()->parent_process->sema_for_exec); // P2 syscall: load 성공 시 sema up 수행문 추가
+	char *fn_copy;
+	tid_t tid;
 
-	return tid;
+	fn_copy = palloc_get_page(PAL_ZERO);
+	if (fn_copy == NULL)
+		return TID_ERROR; // or return -1?
+	strlcpy(fn_copy, cmd_line, PGSIZE);
+
+	tid = process_exec(fn_copy); // line 196
+
+	if (tid < 0)
+		exit(-1);
+	else
+		return tid;
+
 	/********* P2 syscall: 추가 코드 - 끝 *********/
-	// thread_exit();
 }
 
 int wait(tid_t pid)
@@ -344,7 +354,7 @@ void close(int fd)
 	lock_acquire(&filesys_lock);
 	file_close(f);
 	lock_release(&filesys_lock);
-	cur->fdt[fd] = 0; // 이거 f = 0; 으로 하면 에러남! 조심! 
+	cur->fdt[fd] = 0; // 이거 f = 0; 으로 하면 에러남! 조심!
 }
 /******* P2 syscall: TODO The main system call interface & body - 끝 *******/
 
