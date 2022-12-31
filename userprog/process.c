@@ -81,7 +81,8 @@ static void initd(void *f_name)
 	process_init();
 
 	if (process_exec(f_name) < 0)
-		PANIC("Fail to launch initd\n");
+		exit(-1);
+		// PANIC("Fail to launch initd\n");
 
 	NOT_REACHED();
 }
