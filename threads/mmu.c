@@ -128,6 +128,7 @@ pt_for_each(uint64_t *pt, pte_for_each_func *func, void *aux,
 {
 	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++)
 	{
+
 		uint64_t *pte = &pt[i];
 		if (((uint64_t)*pte) & PTE_P)
 		{
@@ -146,6 +147,7 @@ static bool
 pgdir_for_each(uint64_t *pdp, pte_for_each_func *func, void *aux,
 			   unsigned pml4_index, unsigned pdp_index)
 {
+
 	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++)
 	{
 		uint64_t *pte = ptov((uint64_t *)pdp[i]);
@@ -161,6 +163,7 @@ static bool
 pdp_for_each(uint64_t *pdp,
 			 pte_for_each_func *func, void *aux, unsigned pml4_index)
 {
+
 	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++)
 	{
 		uint64_t *pde = ptov((uint64_t *)pdp[i]);
@@ -175,6 +178,7 @@ pdp_for_each(uint64_t *pdp,
 /* Apply FUNC to each available pte entries including kernel's. */
 bool pml4_for_each(uint64_t *pml4, pte_for_each_func *func, void *aux)
 {
+
 	for (unsigned i = 0; i < PGSIZE / sizeof(uint64_t *); i++)
 	{
 		uint64_t *pdpe = ptov((uint64_t *)pml4[i]);

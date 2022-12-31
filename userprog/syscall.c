@@ -138,7 +138,6 @@ int fork(const char *thread_name)
 	tid_t tid;
 	tid = process_fork(thread_name, &thread_current()->tf);
 
-
 	return tid;
 	
 	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
@@ -216,7 +215,7 @@ int open(const char *file)
 	/* 반복문으로 비어있는 곳 찾기(next_fd 필드 사용X) */
 	int i = 2;
 	// while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
-	while (i <= OPEN_MAX) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	while (i < OPEN_MAX) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
 	{
 		if (cur->fdt[i] != 0)
 		{
@@ -238,19 +237,6 @@ int open(const char *file)
 	}
 	return -1;
 
-	/* next_fd를 사용하기 - 시작 */
-	// int openfd = cur->next_fd;
-
-	// if (openfd == OPEN_MAX)
-	// {
-	// 	return;
-	// }
-
-	// cur->fdt[openfd] = filesys_open(file);
-	// cur->next_fd = openfd + 1;
-
-	// return openfd;
-	/* next_fd를 사용하기 - 끝 */
 }
 
 // P2 sys call: `fd`로 open 되어 있는 파일의 바이트 사이즈 반환

@@ -143,6 +143,7 @@ inode_open(disk_sector_t sector)
 struct inode *
 inode_reopen(struct inode *inode)
 {
+
 	if (inode != NULL)
 		inode->open_cnt++;
 	return inode;

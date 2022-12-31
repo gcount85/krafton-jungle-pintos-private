@@ -81,9 +81,9 @@ static void initd(void *f_name)
 	process_init();
 
 	if (process_exec(f_name) < 0)
-		exit(-1); // 내가 작성
-				  // thread_exit(); // 내가 작성
-				  // PANIC("Fail to launch initd\n");
+		// exit(-1); // 내가 작성
+		// thread_exit(); // 내가 작성
+		PANIC("Fail to launch initd\n");
 
 	NOT_REACHED();
 }
@@ -97,12 +97,19 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	memcpy(&parent->parent_if, if_, sizeof(struct intr_frame));
 
 	tid_t pid = thread_create(name,
-							  PRI_DEFAULT, __do_fork, thread_current());
+							  PRI_DEFAULT, __do_fork, parent);
 	if (pid == TID_ERROR)
+	{
 		return TID_ERROR;
+	}
 
 	struct thread *child = get_child(pid);
 	sema_down(&child->sema_for_fork); // sema up이 do fork에서 이루어질때까지 다음 수행은 이루어지지 않음
+	if (child->exit_status == -1)
+	{
+		return TID_ERROR;
+	}
+
 	return pid;
 }
 
@@ -111,36 +118,59 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
  * pml4_for_each. This is only for the project 2. */
 static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 {
+
 	struct thread *current = thread_current();
 	struct thread *parent = (struct thread *)aux;
 	void *parent_page;
 	void *newpage;
 	bool writable;
+	// printf("여기여기여기10\n");
 
 	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-	if (is_kernel_vaddr(va))
+	if (is_kernel_vaddr(va)) // 커널 공간인 경우 바로 복사하도록 반환
 	{
 		return true;
 	}
 	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 2. Resolve VA from the parent's page map level 4. */
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	parent_page = pml4_get_page(parent->pml4, va);
+	if (parent_page == NULL)
+	{
+		return false;
+	}
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
+	newpage = palloc_get_page(PAL_ZERO);
+	if (newpage == NULL)
+	{
+		return false;
+	}
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
+	memcpy(newpage, parent_page, PGSIZE);
+	writable = is_writable(pte);
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
-		/* 6. TODO: if fail to insert page, do error handling. */
+		return false;
 	}
+	printf("여기여기여기20\n");
+
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 	return true;
 }
 #endif
@@ -155,8 +185,9 @@ static void __do_fork(void *aux)
 	struct thread *parent = (struct thread *)aux; // 부모
 	struct thread *current = thread_current();	  // 자식
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
+	printf("여기여기여기2\n");
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
@@ -172,23 +203,47 @@ static void __do_fork(void *aux)
 	if (!supplemental_page_table_copy(&current->spt, &parent->spt))
 		goto error;
 #else
-	if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
-		goto error;
+		if (!pml4_for_each(parent->pml4, duplicate_pte, parent)) // 원래 코드
+			goto error;
 #endif
 
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	/* TODO: Your code goes here.
 	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
+	current->fdt[0] = parent->fdt[0];
+	current->fdt[1] = parent->fdt[1];
+	printf("여기여기여기3\n");
 
+	for (int i = 2; i < OPEN_MAX; i++)
+	{
+		struct file *f = parent->fdt[i];
+		if (parent->fdt[i] == NULL)
+			continue;
+		printf("여기여기여기 for문\n");
+		
+		current->fdt[i] = file_duplicate(f);
+	}
+
+	printf("여기여기여기4\n");
+
+	sema_up(&current->sema_for_fork); // 위치가 꼭 여기여야 함?
+	printf("여기여기여기5\n");
+
+	if_.R.rax = 0;
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 	process_init();
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 error:
-	thread_exit();
+	current->exit_status = TID_ERROR;
+	sema_up(&current->sema_for_fork);
+	exit(TID_ERROR);
+	// thread_exit();
 }
 
 /* Switch the current execution context to the f_name.
@@ -209,10 +264,10 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
+	printf("여기여기여기\n");
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
-
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
 
@@ -838,7 +893,7 @@ void argument_stack(char **argv, int argc, struct intr_frame *_if)
 struct thread *get_child(int pid)
 {
 	struct thread *current = thread_current();
-	struct list *child_list = &current->child;
+	struct list *child_list = &current->child_list;
 	for (struct list_elem *e = list_begin(child_list); e != list_end(child_list); e = list_next(e))
 	{
 		struct thread *t = list_entry(e, struct thread, child_elem);

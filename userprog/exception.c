@@ -145,21 +145,21 @@ static void page_fault(struct intr_frame *f)
 	if (vm_try_handle_fault(f, fault_addr, user, write, not_present))
 		return;
 #endif
-	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 *****/
-	exit(-1);
-	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - 끝 *****/
 
 	/* Count page faults. */
 	page_fault_cnt++;
-
-	// P2 syscall: TODO; Kill하기 전에 프로세의 lock release & malloc free? ==여기서==?
-	// kill(f);
-		   
-
 	/* If the fault is true fault, show info and exit. */
 	printf("Page fault at %p: %s error %s page in %s context.\n",
 		   fault_addr,
 		   not_present ? "not present" : "rights violation",
 		   write ? "writing" : "reading",
 		   user ? "user" : "kernel");
+	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 *****/
+	exit(-99999);
+	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - 끝 *****/
+
+	// P2 syscall: TODO; Kill하기 전에 프로세의 lock release & malloc free? ==여기서==?
+	// kill(f);
+		   
+
 }
