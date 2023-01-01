@@ -311,19 +311,7 @@ void cond_init(struct condition *cond)
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
 
-// P1 priority
-// 첫번째 인자로 주어진 세마포어를 위해
-// 대기 중인 가장 높은 우선순위의 스레드와
-// 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드 비교
-bool cmp_sema_priority(const struct list_elem *a,
-					  const struct list_elem *b,
-					  void *aux)
-{
-	struct list *a_sema_waiters = &list_entry(a, struct semaphore_elem, elem)->semaphore.waiters;
-	struct list *b_sema_waiters = &list_entry(b, struct semaphore_elem, elem)->semaphore.waiters;
-	return (list_entry(list_begin(a_sema_waiters), struct thread, elem)->priority 
-	> list_entry(list_begin(b_sema_waiters), struct thread, elem)->priority);
-}
+
 
 // P1 priority: condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정
 // 프로세스가 이걸 호출하면, 프로세스는 블락되고, cond var에 의한 시그널을 기다림
@@ -388,8 +376,6 @@ void cond_broadcast(struct condition *cond, struct lock *lock)
 }
 
 /*************** P1 priority: 추가한 함수 - 시작 ***************/
-
-
 void donate_priority(void)
 {
 	int depth;
@@ -434,3 +420,18 @@ bool cmp_donor_priority(const struct list_elem *a, const struct list_elem *b, vo
 {
 	return list_entry(a, struct thread, multiple_donation_elem)->priority > list_entry(b, struct thread, multiple_donation_elem)->priority;
 }
+
+// P1 priority
+// 첫번째 인자로 주어진 세마포어를 위해
+// 대기 중인 가장 높은 우선순위의 스레드와
+// 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드 비교
+bool cmp_sema_priority(const struct list_elem *a,
+					  const struct list_elem *b,
+					  void *aux)
+{
+	struct list *a_sema_waiters = &list_entry(a, struct semaphore_elem, elem)->semaphore.waiters;
+	struct list *b_sema_waiters = &list_entry(b, struct semaphore_elem, elem)->semaphore.waiters;
+	return (list_entry(list_begin(a_sema_waiters), struct thread, elem)->priority 
+	> list_entry(list_begin(b_sema_waiters), struct thread, elem)->priority);
+}
+/*************** P1 priority: 추가한 함수 - 끝 ***************/

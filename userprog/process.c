@@ -18,12 +18,12 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+/********* P2 syscall: 추가한 헤더 - 시작 *********/
 #include "threads/malloc.h" // 이거 내가 추가해봄
-/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
 // #include "userprog/syscall.h"
 #include "lib/user/syscall.h"
 
-/********* P2 syscall: wait 관련 코드 추가 - 끝 *********/
+/********* P2 syscall: 추가한 헤더 - 끝 *********/
 
 #ifdef VM
 #include "vm/vm.h"
@@ -58,9 +58,11 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
+	/****************** P2 arg passing: 추가한 코드 - 시작 *************************/
 	// P2 arg passing: filename 파싱하기 (파싱 예시: ls –a → ls)
 	char *save_ptr;
 	file_name = strtok_r(file_name, " ", &save_ptr);
+	/****************** P2 arg passing: 추가한 코드 - 끝 *************************/
 
 	/* Create a new thread to execute FILE_NAME. */
 	// 인수; 스레드 이름(문자열), 스레드 우선순위,
@@ -89,6 +91,7 @@ static void initd(void *f_name)
 	NOT_REACHED();
 }
 
+/****************** P2 arg passing: 추가한 코드 - 시작 *************************/
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
@@ -113,6 +116,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 
 	return tid;
 }
+/****************** P2 arg passing: 추가한 코드 - 끝 *************************/
 
 #ifndef VM
 /* Duplicate the parent's address space by passing this function to the
@@ -132,38 +136,30 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 	{
 		return true;
 	}
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 2. Resolve VA from the parent's page map level 4. */
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	parent_page = pml4_get_page(parent->pml4, va);
 	if (parent_page == NULL)
 	{
 		return false;
 	}
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	newpage = palloc_get_page(PAL_ZERO);
 	if (newpage == NULL)
 	{
 		return false;
 	}
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	memcpy(newpage, parent_page, PGSIZE);
 	writable = is_writable(pte);
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
 		return false;
@@ -185,14 +181,15 @@ static void __do_fork(void *aux)
 	struct thread *parent = (struct thread *)aux; // 부모
 	struct thread *current = thread_current();	  // 자식
 
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if;
 	parent_if = &parent->parent_if;
 	bool succ = true;
-	// printf("여기여기여기2\n");
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -230,7 +227,7 @@ static void __do_fork(void *aux)
 	// }
 
 	/* walking parent fdt*/
-if (parent->next_fd == OPEN_MAX)
+	if (parent->next_fd == OPEN_MAX)
 	{
 		goto error;
 	}
@@ -262,23 +259,22 @@ if (parent->next_fd == OPEN_MAX)
 		current->fdt[i] = copy_file;
 	}
 	current->next_fd = parent->next_fd;
-
-	// printf("여기여기여기4\n");
-
 	sema_up(&current->sema_for_fork); // 위치가 꼭 여기여야 함?
-	// printf("여기여기여기5\n");
 
 	if_.R.rax = 0;
 	/********* P2 syscall: 추가한 코드 - 끝 *********/
-	// process_init();
+	// process_init(); // +++ 왜 지워?
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 error:
+	/********* P2 syscall: 추가한 코드 - 시작 *********/
+
 	current->exit_status = TID_ERROR;
 	sema_up(&current->sema_for_fork);
 	exit(TID_ERROR);
+	/********* P2 syscall: 추가한 코드 - 끝 *********/
 }
 
 /* Switch the current execution context to the f_name.
@@ -299,7 +295,6 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
-	// printf("여기여기여기\n");
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
@@ -307,7 +302,7 @@ int process_exec(void *f_name)
 	/* If load failed, quit. */
 	if (!success)
 	{
-		palloc_free_page(file_name); // 자리 옮김
+		palloc_free_page(file_name); // ++ 자리 옮김
 		return -1;
 	}
 
@@ -325,6 +320,8 @@ int process_exec(void *f_name)
  *cd
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
+
+/********* P2 syscall: 수정한 함수 - 시작 *********/
 int process_wait(tid_t child_tid UNUSED)
 {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
@@ -365,7 +362,6 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
 
 	/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
 	// 프로세스의 모든 열린 파일 close
@@ -389,6 +385,8 @@ void process_exit(void)
 
 	process_cleanup();
 }
+/********* P2 syscall: 수정한 함수 - 끝 *********/
+
 
 /* Free the current process's resources. */
 static void process_cleanup(void)
@@ -855,8 +853,8 @@ setup_stack(struct intr_frame *if_)
 // === push 하면서 여유 공간 있는지 확인 ?
 void stack_arguments(int argc, char **argv, struct intr_frame *if_)
 {
- // 혜지코드
- 	char *argv_addr[128]; // array that saves addresses of arguments
+	// 혜지코드
+	char *argv_addr[128]; // array that saves addresses of arguments
 
 	/* Pushing arguments into user stack (right -> left) */
 	for (int i = argc - 1; i >= 0; i--)
@@ -895,60 +893,59 @@ void stack_arguments(int argc, char **argv, struct intr_frame *if_)
 
 	////////
 
+	// // /* ================집단지성 디버깅 코드 - OK =========================== */
 
-	// /* ================집단지성 디버깅 코드 - OK =========================== */
+	// // int addr[64]; // 이 메모리 공간은 어디서 오는가?
+	// // uintptr_t starting = if_->rsp;
 
-	// int addr[64]; // 이 메모리 공간은 어디서 오는가?
-	// uintptr_t starting = if_->rsp;
-
-	for (int i = argc - 1; i >= 0; i--)
-	{
-		// addr[i] = USER_STACK;
-		if_->rsp -= (strlen(argv[i]) + 1);
-		memcpy(if_->rsp, argv[i], strlen(argv[i]) + 1);
-		argv[i] = (char *)if_->rsp;
-	}
-
-	if_->rsp -= (if_->rsp % 8);				 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
-	memset(if_->rsp, 0, 8 * (if_->rsp % 8)); // end of arg string; 0으로 init
-
-	// while (if_->rsp % 8 != 0)
+	// for (int i = argc - 1; i >= 0; i--)
 	// {
-	// 	if_->rsp--;
-	// 	*(uint8_t *)if_->rsp = 0;
+	// 	// addr[i] = USER_STACK;
+	// 	if_->rsp -= (strlen(argv[i]) + 1);
+	// 	memcpy(if_->rsp, argv[i], strlen(argv[i]) + 1);
+	// 	argv[i] = (char *)if_->rsp;
 	// }
 
-	if_->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
-	memset(if_->rsp, 0, 8); // end of arg string; 0으로 init
+	// if_->rsp -= (if_->rsp % 8);				 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
+	// memset(if_->rsp, 0, 8 * (if_->rsp % 8)); // end of arg string; 0으로 init
 
+	// // while (if_->rsp % 8 != 0)
+	// // {
+	// // 	if_->rsp--;
+	// // 	*(uint8_t *)if_->rsp = 0;
+	// // }
+
+	// if_->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
+	// memset(if_->rsp, 0, 8); // end of arg string; 0으로 init
+
+	// // if_->rsp -= 8;
+	// // memcpy(if_->rsp, starting, 8);
+
+	// // 유저스택의 argv[n] ... argv[0]의 시작 주소를 유저 스택에 추가
+	// for (int i = argc - 1; i >= 0; i--)
+	// {
+	// 	if_->rsp -= 8;
+	// 	// memcpy(if_->rsp, argv[i], 8);
+	// 	*(char **)if_->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
+	// 								  // starting -= (strlen(argv[i]) + 1);
+	// }
+
+	// // // push argv set의 시작 주소
+	// // starting = if_->rsp;
+	// // if_->rsp -= 8;
+	// // memcpy(if_->rsp, starting, 8);
+
+	// // // push argc
+	// // if_->rsp -= 8;
+	// // memcpy(if_->rsp, argc, 8);
+
+	// // push return adress (0을 이렇게 넣는게 맞냐.. )
 	// if_->rsp -= 8;
-	// memcpy(if_->rsp, starting, 8);
+	// memset(if_->rsp, 0, 8);
 
-	// 유저스택의 argv[n] ... argv[0]의 시작 주소를 유저 스택에 추가
-	for (int i = argc - 1; i >= 0; i--)
-	{
-		if_->rsp -= 8;
-		// memcpy(if_->rsp, argv[i], 8);
-		*(char **)if_->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
-									  // starting -= (strlen(argv[i]) + 1);
-	}
-
-	// // push argv set의 시작 주소
-	// starting = if_->rsp;
-	// if_->rsp -= 8;
-	// memcpy(if_->rsp, starting, 8);
-
-	// // push argc
-	// if_->rsp -= 8;
-	// memcpy(if_->rsp, argc, 8);
-
-	// push return adress (0을 이렇게 넣는게 맞냐.. )
-	if_->rsp -= 8;
-	memset(if_->rsp, 0, 8);
-
-	// push argv set의 시작 주소 & push argc
-	if_->R.rdi = argc;
-	if_->R.rsi = (uint64_t)if_->rsp + 8;
+	// // push argv set의 시작 주소 & push argc
+	// if_->R.rdi = argc;
+	// if_->R.rsi = (uint64_t)if_->rsp + 8;
 	/* ================ 집단지성 디버깅 코드 - 끝 =========================== */
 
 	/* ================Heruing 코드 - OK =========================== */
@@ -984,5 +981,3 @@ void stack_arguments(int argc, char **argv, struct intr_frame *if_)
 	// memset(if_->rsp, 0, sizeof(char *));
 	/* ================Heruing 코드 - 끝 =========================== */
 }
-
-

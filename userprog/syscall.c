@@ -15,7 +15,9 @@
 #include "userprog/process.h" // exec 헤더
 #include <string.h>			  // strcpy를 위한?
 #include "threads/palloc.h"	  // EXEC PALLOG GET PAGE 헤더
-
+struct file *find_file_by_fd(int fd);
+void remove_file_from_fdt(int fd);
+int add_file_to_fdt(struct file *file);
 /******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
 void syscall_entry(void);
@@ -132,9 +134,7 @@ void check_address(void *addr)
 	}
 }
 
-/* P2 syscall: sys call body
- * 다 만들고 헤더에 추가하기
- *  */
+/* P2 syscall: sys call body */
 void halt(void)
 {
 	power_off();
@@ -148,11 +148,17 @@ void exit(int status)
 	thread_exit();
 }
 
-int wait(tid_t pid)
+
+tid_t fork(const char *thread_name)
 {
-	return process_wait(pid);
-	// thread_exit();
+
+	return process_fork(thread_name, &thread_current()->parent_if);
+
+	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
+	// if fork 실패: return TID_ERROR
+
 }
+
 
 int exec(const char *cmd_line)
 {
@@ -186,17 +192,9 @@ int exec(const char *cmd_line)
 	/********* P2 syscall: 추가 코드 - 끝 *********/
 }
 
-int fork(const char *thread_name)
+int wait(tid_t pid)
 {
-	tid_t tid;
-	tid = process_fork(thread_name, &thread_current()->parent_if);
-
-	return tid;
-
-	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
-	// if fork 실패: return TID_ERROR
-
-	// thread_exit();
+	return process_wait(pid);
 }
 
 // P2 sys call; `initial_size`를 가진 파일을 만듦
@@ -209,6 +207,7 @@ bool create(const char *file, unsigned initial_size)
 	lock_release(&filesys_lock);
 	return bool_created;
 }
+
 
 // P2 sys call; `file`이라는 이름을 가진 파일 삭제
 bool remove(const char *file)
@@ -226,32 +225,74 @@ int open(const char *file)
 {
 	check_address(file);
 
-	struct thread *cur = thread_current();
+	/* Try to open file */
+	lock_acquire(&filesys_lock);
+	struct file *open_file = filesys_open(file);
+	lock_release(&filesys_lock);
 
-	/* 반복문으로 비어있는 곳 찾기(next_fd 필드 사용X) */
-	int i = 2;
-	// while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
-	while (i < OPEN_MAX) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	/* Return -1 when file could not be opened */
+	if (open_file == NULL)
 	{
-		if (cur->fdt[i] != 0)
-		{
-			continue;
-		}
-		else
-		{
-			lock_acquire(&filesys_lock);
-			struct file *f = filesys_open(file);
-			lock_release(&filesys_lock);
-			if (f == NULL)
-			{
-				return -1;
-			}
-			cur->fdt[i] = f;
-			return i;
-		}
-		i++;
+		return -1;
 	}
-	return -1;
+
+	/* Add file to File descriptor table */
+	struct thread *curr = thread_current();
+
+	/*Find an empty entry*/
+	while ((curr->next_fd < OPEN_MAX) && (curr->fdt[curr->next_fd]))
+	{
+		curr->next_fd++;
+	}
+
+	/*If FDT is full, return -1*/
+	if (curr->next_fd >= OPEN_MAX)
+	{
+		file_close(open_file);
+		return -1;
+	}
+
+	/* Add file into FDT */
+	curr->fdt[curr->next_fd] = open_file;
+
+	int fd = curr->next_fd;
+
+	return fd;
+
+	// ------------------내 코드 시작 -------------------------
+	// check_address(file);
+
+	// struct thread *cur = thread_current();
+	// /* 반복문으로 비어있는 곳 찾기(next_fd 필드 사용X) */
+	// int i = 2;
+	// // while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	// while (i < OPEN_MAX) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	// {
+	// 	if (cur->fdt[i] != NULL)
+	// 	{
+	// 		i++; // 세희 디버깅
+	// 		continue;
+	// 	}
+	// 	else
+	// 	{
+	// 		lock_acquire(&filesys_lock);
+	// 		struct file *f = filesys_open(file);
+	// 		lock_release(&filesys_lock);
+	// 		if (f == NULL)
+	// 		{
+	// 			file_close(f);
+	// 			return -1;
+	// 		}
+	// 		if (!cur->fdt[i])
+	// 		{
+	// 			cur->fdt[i] = f;
+	// 		}
+	// 		return i;
+	// 	}
+	// }
+	// return -1;
+	// ------------------내 코드 끝 -------------------------
+
 }
 
 // P2 sys call: `fd`로 open 되어 있는 파일의 바이트 사이즈 반환
@@ -271,131 +312,147 @@ int filesize(int fd)
 // P2 sys call: fd`로 open 되어 있는 파일로부터 `size` 바이트를 읽어내 `buffer`에 담음 + 실제로 읽어낸 바이트 반환
 int read(int fd, void *buffer, unsigned size)
 {
-	// check_address(buffer);
-
-	// struct thread *cur = thread_current();
-	// struct file *f = cur->fdt[fd];
-
-	// if (fd < 0 || f == NULL || f == STDOUT)
-	// {
-	// 	return -1;
-	// }
-
-	// if (f == STDIN)
-	// {
-	// 	return input_getc();
-	// }
-
-	// return file_read(f, buffer, size); // 0 반환 → 파일의 끝을 의미
-
 	check_address(buffer);
-	// check_address (buffer + length - 1);
 
-	int bytes_read;
+	struct thread *cur = thread_current();
 
-	/* Standard Input */
-	if (fd == STDIN_FILENO)
-	{
-		unsigned char *buf = buffer;
-
-		for (bytes_read = 0; bytes_read < size; bytes_read++)
-		{
-			char key = input_getc();
-			*buf++ = key;
-			if (key == '\0')
-				break;
-		}
-		// bytes_read = size;
-
-		return bytes_read;
-	}
-
-	/* Standard Output */
-	else if (fd == STDOUT_FILENO)
+	// ERROR: bad fd
+	if (fd < 0 || fd == STDOUT_FILENO || fd >= OPEN_MAX)
 	{
 		return -1;
 	}
 
-	/* Normal File */
-	else
+	struct file *f = cur->fdt[fd];
+
+	// ERROR: no file
+	if (f == NULL)
 	{
-		struct thread *cur = thread_current();
-		struct file *file = cur->fdt[fd];
-
-		/* File not exist */
-		if (file == NULL)
-		{
-			return -1;
-		}
-
-		lock_acquire(&filesys_lock);
-		bytes_read = file_read(file, buffer, size);
-		lock_release(&filesys_lock);
-
-		return bytes_read;
+		return -1;
 	}
+
+	// standard input (여기 다름! )
+	if (f == STDIN)
+	{
+		return input_getc();
+	}
+
+	return file_read(f, buffer, size); // 0 반환 → 파일의 끝을 의미
+
+	// -----------------------------------------
+	// check_address(buffer);
+
+	// int bytes_read;
+
+	// /* Standard Input */
+	// if (fd == STDIN_FILENO)
+	// {
+	// 	unsigned char *buf = buffer;
+
+	// 	for (bytes_read = 0; bytes_read < size; bytes_read++)
+	// 	{
+	// 		char key = input_getc();
+	// 		*buf++ = key;
+	// 		if (key == '\0')
+	// 			break;
+	// 	}
+	// 	// bytes_read = size;
+
+	// 	return bytes_read;
+	// }
+
+	// /* Standard Output */
+	// else if (fd == STDOUT_FILENO)
+	// {
+	// 	return -1;
+	// }
+
+	// /* Normal File */
+	// else
+	// {
+	// 	struct thread *cur = thread_current();
+	// 	struct file *file = cur->fdt[fd];
+
+	// 	/* File not exist */
+	// 	if (file == NULL)
+	// 	{
+	// 		return -1;
+	// 	}
+
+	// 	lock_acquire(&filesys_lock);
+	// 	bytes_read = file_read(file, buffer, size);
+	// 	lock_release(&filesys_lock);
+
+	// 	return bytes_read;
+	// }
 }
 
 // P2 sys call: `buffer`에 담긴 `size` 바이트를 open file `fd`에 쓰기 + 실제로 쓰인 바이트의 숫자를 반환
 int write(int fd, const void *buffer, unsigned size)
 {
-	// check_address(buffer);
-
-	// struct thread *cur = thread_current();
-	// struct file *f = cur->fdt[fd];
-	// off_t byte_written;
-
-	// if (fd < 0 || f == NULL || f == STDIN) // 에러조건문 추가
-	// {
-	// 	return -1;
-	// }
-
-	// if (f == STDOUT)
-	// {
-	// 	putbuf(buffer, size);
-	// 	return size;
-	// }
-
-	// lock_acquire(&filesys_lock);
-	// byte_written = file_write(f, buffer, size); // 내 원래 코드
-	// lock_release(&filesys_lock);
-	// return byte_written;
-
 	check_address(buffer);
 
-	int bytes_written;
+	struct thread *cur = thread_current();
+	off_t byte_written;
 
-	/* Standart Output */
-	if (fd == STDOUT_FILENO)
-	{
-		putbuf(buffer, size);
-		bytes_written = size;
-		return bytes_written;
-	}
-
-	/* Standard Input */
-	else if (fd == STDIN_FILENO)
+	if (fd < 0 || fd == STDIN_FILENO || fd >= OPEN_MAX) // 에러조건문 추가
 	{
 		return -1;
 	}
 
-	/* Normal file */
-	else
+	struct file *f = cur->fdt[fd];
+
+	if (f == NULL)
 	{
-
-		struct thread *cur = thread_current();
-		struct file *file = cur->fdt[fd];
-		if (file == NULL)
-		{
-			return -1;
-		}
-
-		lock_acquire(&filesys_lock);
-		bytes_written = file_write(file, buffer, size);
-		lock_release(&filesys_lock);
-
-		return bytes_written;
+		return -1;
 	}
+
+	if (f == STDOUT)
+	{
+		putbuf(buffer, size);
+		return size;
+	}
+
+	lock_acquire(&filesys_lock);
+	byte_written = file_write(f, buffer, size);
+	lock_release(&filesys_lock);
+	return byte_written;
+
+	// -------------------------------------------
+	// check_address(buffer);
+
+	// int bytes_written;
+
+	// /* Standart Output */
+	// if (fd == STDOUT_FILENO)
+	// {
+	// 	putbuf(buffer, size);
+	// 	bytes_written = size;
+	// 	return bytes_written;
+	// }
+
+	// /* Standard Input */
+	// else if (fd == STDIN_FILENO)
+	// {
+	// 	return -1;
+	// }
+
+	// /* Normal file */
+	// else
+	// {
+
+	// 	struct thread *cur = thread_current();
+	// 	struct file *file = cur->fdt[fd];
+	// 	if (file == NULL)
+	// 	{
+	// 		return -1;
+	// 	}
+
+	// 	lock_acquire(&filesys_lock);
+	// 	bytes_written = file_write(file, buffer, size);
+	// 	lock_release(&filesys_lock);
+
+	// 	return bytes_written;
+	// }
 }
 
 // P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈
@@ -427,17 +484,21 @@ unsigned tell(int fd)
 void close(int fd)
 {
 	struct thread *cur = thread_current();
+	if (fd < 2 || fd >= OPEN_MAX)
+	{
+		return;
+	}
 	struct file *f = cur->fdt[fd];
-	if (fd < 2 || f == 0 )
+	if (f == NULL)
 	{
 		return;
 	}
 	cur->fdt[fd] = NULL; // 이거 f = 0; 으로 하면 에러남! 조심!
-
 	// lock_acquire(&filesys_lock);
 	file_close(f);
 	// lock_release(&filesys_lock);
 }
+
 /******* P2 syscall: TODO The main system call interface & body - 끝 *******/
 
 /****** P2 syscall: kaist pdf에서 복붙한 코드 - 시작 - unsure ******/
@@ -466,3 +527,56 @@ void close(int fd)
 // 	return error_code != -1;
 // }
 /********************* pdf에서 복붙한 코드: unsure - 끝 *****************/
+
+
+/*Helper Functions*/
+/*Add file to File Descriptor Table
+  Return file descriptor on success, -1 on failure
+*/
+int add_file_to_fdt(struct file *file)
+{
+	struct thread *curr = thread_current();
+
+	/*Find an empty entry*/
+	while ((curr->next_fd < OPEN_MAX) && (curr->fdt[curr->next_fd]))
+	{
+		curr->next_fd++;
+	}
+
+	/*If FDT is full, return -1*/
+	if (curr->next_fd >= OPEN_MAX)
+	{
+		return -1;
+	}
+
+	/* Add file into FDT */
+	curr->fdt[curr->next_fd] = file;
+
+	return curr->next_fd;
+}
+
+/*Search thread's fdt and return file struct pointer*/
+struct file *find_file_by_fd(int fd)
+{
+	struct thread *curr = thread_current();
+
+	if (fd < 0 || fd >= OPEN_MAX)
+	{
+		return NULL;
+	}
+
+	return curr->fdt[fd];
+}
+
+/*Remove file from file descriptor table*/
+void remove_file_from_fdt(int fd)
+{
+	struct thread *curr = thread_current();
+
+	if (fd < 0 || fd >= OPEN_MAX)
+	{
+		return;
+	}
+
+	curr->fdt[fd] = NULL;
+}

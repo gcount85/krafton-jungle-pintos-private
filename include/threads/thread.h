@@ -34,12 +34,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63	   /* Highest priority. */
 
-/*************** P2 sys call: OPEN_MAX 값 정의 ***************/
+/*************** P2 sys call: 매크로 추가 ***************/
 #define FDT_PAGES 3
-#define OPEN_MAX (FDT_PAGES * (1 << 9))
-#define OPEN_MAX FDT_PAGES *(1 << 9) // hj 
+#define OPEN_MAX (FDT_PAGES * (1 << 9)) // fdt의 최대 fd 값
 
-/*************** P2 sys call: OPEN_MAX 값 정의 - 끝 ***************/
+/*************** P2 sys call: 매크로 추가 - 끝 ***************/
 
 /* A kernel thread or user process.
  *
@@ -106,27 +105,27 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 
-	// ****************** P1: 추가한 필드 *************************
+	/****************** P1: 추가한 필드 *************************/
 	int64_t wakeup_tick;					 // P1 alarm: tick till wake up
 	int origin_priority;					 // P1 donation: 원래의 우선순위 값
 	struct lock *lock_address;				 // P1 donation: 락 주소
 	struct list multiple_donation;			 // P1 donation
 	struct list_elem multiple_donation_elem; // P1 donation
-	// ****************** P1: 추가한 필드 - 끝 *************************
+	/****************** P1: 추가한 필드 *************************/
 
-	// ****************** P2: 추가한 필드 *************************
+	/****************** P2: 추가한 필드 *************************/
 	// struct thread *parent_process;	// Pointer to parent process
 	struct list child_list;			// Pointers to the children list
 	struct list_elem child_elem;	// Pointers to the children list-elem
-	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
-	struct semaphore sema_for_fork; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
-	struct semaphore sema_for_free; // 자식의 exit 후 부모를 다시 자유롭게 해줌
+	struct semaphore sema_for_wait; // `wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_fork; // `fork()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_free; // +++ 자식의 exit 후 부모를 다시 자유롭게 해줌
 	int exit_status;				// 스레드의 종료 상태를 나타냄
 	struct file **fdt;				// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)
-	struct intr_frame parent_if;	// 부모의 tf 값 (fork)
-	struct file *running_f;			// 실행중인 파일
+	struct intr_frame parent_if;	// +++ 부모의 tf 값 (fork)
+	struct file *running_f;			// +++ 실행 중인 파일
 	int next_fd;
-	// ****************** P2: 추가한 필드 - 끝 ********************
+	/****************** P2: 추가한 필드 - 끝 *************************/
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
@@ -179,7 +178,7 @@ int thread_get_load_avg(void);
 
 void do_iret(struct intr_frame *tf);
 
-// ****************** P1: 추가한 함수 *************************
+/****************** P1 priority: 프로토타입 추가 *************************/
 void thread_sleep(int64_t ticks);
 void thread_wakeup(int64_t ticks);
 void update_next_tick_to_awake(int64_t ticks);
@@ -188,11 +187,10 @@ bool cmp_priority(const struct list_elem *a,
 				  const struct list_elem *b,
 				  void *aux);
 void test_max_priority(void);
-// ****************** P1: 추가한 함수 - 끝 ********************
+/****************** P1 priority: 프로토타입 추가 - 끝 *************************/
 
 /*************** P2 sys call: 프로토타입 추가 - 시작 ***************/
-// struct thread *get_child(int pid);
-struct thread *get_child (tid_t child_tid);
+struct thread *get_child (tid_t child_tid); // +++ tid로 자식 검색
 
 /*************** P2 sys call: 프로토타입 추가 - 끝 ***************/
 
