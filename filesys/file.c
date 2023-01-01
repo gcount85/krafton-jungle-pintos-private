@@ -5,7 +5,6 @@
 
 /********* P2 syscall: file 구조체 정의 include/filesys/file.h 로 옮김 *********/
 
-
 /* Opens a file for the given INODE, of which it takes ownership,
  * and returns the new file.  Returns a null pointer if an
  * allocation fails or if INODE is null. */
