@@ -15,11 +15,6 @@
 #include "userprog/process.h"
 #endif
 
-/*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
-// #include "lib/stdio.h"
-
-/*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
-
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -33,15 +28,15 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/*************** P1 priority: 프로토타입 & 헤더 추가 - 시작 ***************/
+/*************** P1 priority: 프로토타입 & 매크로 추가 - 시작 ***************/
 static struct list sleep_list;	   // 블락된 쓰레드들을 위한 쓰레드
 static int64_t next_tick_to_awake; // 슬립 리스트의 쓰레드가 가진 가장 작은 틱
 static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
 							void *aux);
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b)) // +++
 
-/*************** P1 priority: 프로토타입 추가 - 끝 ***************/
+/*************** P1 priority: 프로토타입 & 매크로 추가 - 끝 ***************/
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -122,7 +117,9 @@ void thread_init(void)
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&sleep_list);			// P1 alarm: 슬립리스트 초기화
-	next_tick_to_awake = INT64_MAX; // hj
+	/****************** P1 alarm: 추가 *************************/
+	next_tick_to_awake = INT64_MAX; // +++ 
+	/****************** P1 alarm: 추가 - 끝 *************************/
 
 	list_init(&destruction_req);
 
@@ -218,8 +215,7 @@ tid_t thread_create(const char *name, int priority,
 		return TID_ERROR;
 	t->fdt[0] = 1;
 	t->fdt[1] = 2;
-
-	t->next_fd = 2; // hj
+	t->next_fd = 2; // +++
 
 	/********** P2 sys call: 초기화 코드 - 끝 **********/
 
@@ -477,11 +473,11 @@ init_thread(struct thread *t, const char *name, int priority)
 
 	/***************** P2 sys call: 초기화 추가*************************/
 	list_init(&t->child_list);		 // 자식 리스트 초기화
-	sema_init(&t->sema_for_wait, 0); // `process_wait()`을 위한 세마포어 초기화
-	sema_init(&t->sema_for_fork, 0); // `process_wait()`을 위한 세마포어 초기화
-	sema_init(&t->sema_for_free, 0); // `exec()`을 위한 세마포어 초기화
-	t->exit_status = 0;
-	t->running_f = NULL;
+	sema_init(&t->sema_for_wait, 0); // `wait()`을 위한 세마포어 초기화
+	sema_init(&t->sema_for_fork, 0); // `fork()`을 위한 세마포어 초기화
+	sema_init(&t->sema_for_free, 0); // +++ `wait()`을 위한 세마포어 초기화
+	t->exit_status = 0; 
+	t->running_f = NULL; // +++
 
 	/***************** P2 sys call: 초기화 추가 - 끝*****************/
 }
@@ -676,8 +672,8 @@ allocate_tid(void)
 	return tid;
 }
 
-/*************** P1 priority: 추가한 함수 - 시작 ***************/
 
+/*************** P1 priority: 추가한 함수 - 시작 ***************/
 // P1 alarm: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
 static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
@@ -761,7 +757,7 @@ void thread_wakeup(int64_t ticks)
 	// }
 	// // -- 내 코드 --------------------------------------
 
-	next_tick_to_awake = INT64_MAX;
+	// next_tick_to_awake = INT64_MAX;
 	struct list_elem *target; //= list_begin (&sleep_list);
 
 	// while (target != list_end (&sleep_list)) {
@@ -842,7 +838,7 @@ void thread_set_priority(int new_priority)
 	test_max_priority();
 }
 
-/********* P2 syscall: 추가한 코드 - 시작 *********/
+/********* P2 syscall: 추가한 함수 - 시작 *********/
 // 자식 리스트를 순회하며 tid가 pid인 스레드 반환
 struct thread *get_child(int pid)
 {
@@ -861,4 +857,4 @@ struct thread *get_child(int pid)
 	}
 	return NULL;
 }
-/********* P2 syscall: 추가한 코드 - 끝 *********/
+/********* P2 syscall: 추가한 함수 - 끝 *********/
