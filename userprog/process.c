@@ -123,7 +123,6 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
  * pml4_for_each. This is only for the project 2. */
 static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 {
-
 	struct thread *current = thread_current();
 	struct thread *parent = (struct thread *)aux;
 	void *parent_page;
@@ -164,7 +163,6 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 	{
 		return false;
 	}
-	// printf("여기여기여기20\n");
 
 	/********* P2 syscall: 추가한 코드 - 끝 *********/
 	return true;
@@ -177,16 +175,14 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
  *       this function. */
 static void __do_fork(void *aux)
 {
-	struct intr_frame if_;						  // 아마도 부모로부터 복사된 값을 받을 자식의 if?
+	struct intr_frame if_;						  // 부모로부터 복사된 값을 받을 자식의 if
 	struct thread *parent = (struct thread *)aux; // 부모
 	struct thread *current = thread_current();	  // 자식
 
 	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
-	parent_if = &parent->parent_if;
+	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
-	// printf("여기여기여기2\n");
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
@@ -203,7 +199,7 @@ static void __do_fork(void *aux)
 	if (!supplemental_page_table_copy(&current->spt, &parent->spt))
 		goto error;
 #else
-	if (!pml4_for_each(parent->pml4, duplicate_pte, parent)) // 원래 코드
+	if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
@@ -213,58 +209,37 @@ static void __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	// current->fdt[0] = parent->fdt[0];
-	// current->fdt[1] = parent->fdt[1];
-	// printf("여기여기여기3\n");
 
-	// for (int i = 2; i < OPEN_MAX; i++)
-	// {
-	// 	struct file *f = parent->fdt[i];
-	// 	if (parent->fdt[i] == NULL)
-	// 		continue;
-	// 	// printf("여기여기여기 for문\n");
-
-	// 	current->fdt[i] = file_duplicate(f);
-	// }
-
-	/* walking parent fdt*/
+	// +++ multi-oom을 통과하기 위함
 	if (parent->next_fd == OPEN_MAX)
 	{
 		goto error;
 	}
 
-	/* walking parent fdt*/
+	// 부모의 fdt를 복사하여 자식의 fdt로 넣음
 	for (int i = 0; i < OPEN_MAX; i++)
 	{
 		struct file *file = parent->fdt[i];
 
-		/* No file */
-		if (file == NULL)
+		if (file == NULL) // 열린 파일이 없는 경우
 		{
 			continue;
 		}
 
-		struct file *copy_file;
-
-		/* Normal File */
-		if (file > 2)
+		if (file == 1 || file == 2) // 스탠다드 입출력 파일인 경우
 		{
-			copy_file = file_duplicate(file);
+			current->fdt[i] = file;
 		}
-		/* STDIN, STDOUT*/
-		else
+		else // 평범한 파일인 경우
 		{
-			copy_file = file;
+			current->fdt[i] = file_duplicate(file);
 		}
-		/* Add file to current thread's fdt */
-		current->fdt[i] = copy_file;
 	}
 	current->next_fd = parent->next_fd;
 	sema_up(&current->sema_for_fork); // 위치가 꼭 여기여야 함?
 
 	if_.R.rax = 0;
 	/********* P2 syscall: 추가한 코드 - 끝 *********/
-	// process_init(); // +++ 왜 지워?
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
@@ -328,12 +303,6 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	// P2 arg passing: argument passing make check을 위한
-	// for (int i = 0; i < 2000000000; i++)
-	// {
-	// 	;
-	// }
-	// return -1;
 
 	struct thread *curr = thread_current();
 	struct thread *child = get_child(child_tid);
@@ -341,17 +310,12 @@ int process_wait(tid_t child_tid UNUSED)
 	{
 		return -1;
 	}
-	sema_down(&child->sema_for_wait); /*이제 child가 exit을 부를 때 sema_up()을 하면 됨*/
+	sema_down(&child->sema_for_wait); // 이 시점에서 자식 프로세스 종료될 때까지 호출자 블락, child가 exit을 부를 때 sema_up()
 	int child_exit_status = child->exit_status;
 	list_remove(&child->child_elem); /*sema_down을 했다는 건 child process가 exit을 했다는 의미*/
-	sema_up(&child->sema_for_free);	 // 다른 세마포어를 사용해야 하나???
+	sema_up(&child->sema_for_free);	 // 다른 세마포어?!
 	return child_exit_status;
 
-	/* child_tid를 이용하여 자식 프로세스의 디스크립터 검색
-	 * 자식 프로세스의 exit() 호출 발생
-	 * 		부모가 자식의 pid를 deallocate (리스트에서 제거)
-	 * 		tid의 세마포어를 위해 sema down for wait (이 시점에서 자식 프로세스 죽을 때까지 호출자 블락)
-	 * 		종료된 자식의 exit status 리턴  */
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -366,28 +330,23 @@ void process_exit(void)
 
 	/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
 	// 프로세스의 모든 열린 파일 close
-	for (int i = 0; i < OPEN_MAX, i++;)
+	for (int fd = 0; fd < OPEN_MAX, fd++;)
 	{
-		close(i);
+		close(fd);
 	}
 
 	/* Deallocate File Descriptor Table */
-	// palloc_free_page (curr->fdt);
 	palloc_free_multiple(cur->fdt, FDT_PAGES);
 	file_close(cur->running_f);
 
-	sema_up(&cur->sema_for_wait);
+	sema_up(&cur->sema_for_wait); // 블락 되어있던 wait 호출자 프로세스가 깨어남 
 	sema_down(&cur->sema_for_free);
-	// if (&cur->lock_address)
-	// {
-	// 	lock_release(&cur->lock_address);
-	// }
+
 	/********* P2 syscall: wait 관련 코드 추가 - 끝 *********/
 
 	process_cleanup();
 }
 /********* P2 syscall: 수정한 함수 - 끝 *********/
-
 
 /* Free the current process's resources. */
 static void process_cleanup(void)

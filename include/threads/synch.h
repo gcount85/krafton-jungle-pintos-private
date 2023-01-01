@@ -17,11 +17,6 @@ bool sema_try_down(struct semaphore *);
 void sema_up(struct semaphore *);
 void sema_self_test(void);
 
-/****************** P1 priority: 추가 - 시작 *************************/
-bool cmp_sema_priority(const struct list_elem *a,
-					   const struct list_elem *b,
-					   void *aux); // P1 priority
-/****************** P1 priority: 추가 - 끝 *************************/
 
 /* Lock. */
 // 여기는 굳이 수정할 필요 없고 세마포어만 수정해도 충분
@@ -53,6 +48,9 @@ void donate_priority(void);
 void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
 bool cmp_donor_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool cmp_sema_priority(const struct list_elem *a,
+					   const struct list_elem *b,
+					   void *aux); // P1 priority
 /****************** P1 priority: 추가 - 끝 *************************/
 
 /* Optimization barrier.

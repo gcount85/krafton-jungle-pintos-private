@@ -8,7 +8,7 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 
-/******* P2 syscall: syscall interface를 위한 헤더 추가 - 시작 *******/
+/******* P2 syscall: 헤더 & 프로토타입 추가 - 시작 *******/
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "lib/kernel/stdio.h"
@@ -18,7 +18,8 @@
 struct file *find_file_by_fd(int fd);
 void remove_file_from_fdt(int fd);
 int add_file_to_fdt(struct file *file);
-/******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
+
+/******* P2 syscall: 헤더 & 프로토타입 추가 - 끝 *******/
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -39,8 +40,8 @@ void syscall_handler(struct intr_frame *);
 /***************** P2 syscall: 매크로 추가 *****************/
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
-#define STDIN 1	 // P2 sys call: FDT의 FD 0 매크로 선언
-#define STDOUT 2 // P2 sys call: FDT의 FD 1 매크로 선언
+#define STDIN_FILE 1  // P2 sys call: FDT의 FD 0 매크로 선언
+#define STDOUT_FILE 2 // P2 sys call: FDT의 FD 1 매크로 선언
 /***************** P2 syscall: 매크로 추가 - 끝 *****************/
 
 void syscall_init(void)
@@ -82,11 +83,11 @@ void syscall_handler(struct intr_frame *f)
 		f->R.rax = fork(f->R.rdi);
 		break;
 	case SYS_EXEC: /* Switch current process. */
-		if (exec(f->R.rdi) == -1)
+		f->R.rax = exec(f->R.rdi);
+		if (f->R.rax == -1)
 		{
 			exit(-1);
 		}
-		// f->R.rax = exec(f->R.rdi);
 		break;
 	case SYS_WAIT: /* Wait for a child process to die. */
 		f->R.rax = wait(f->R.rdi);
@@ -148,16 +149,18 @@ void exit(int status)
 	thread_exit();
 }
 
-int wait(tid_t pid)
+tid_t fork(const char *thread_name)
 {
-	return process_wait(pid);
+
+	return process_fork(thread_name, &thread_current()->parent_if);
+
+	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
+	// if fork 실패: return TID_ERROR
 }
 
 int exec(const char *cmd_line)
 {
-
 	/********* P2 syscall: 추가 코드 - 시작 *********/
-
 	check_address(cmd_line);
 	tid_t tid;
 	char *fn_copy;
@@ -165,37 +168,23 @@ int exec(const char *cmd_line)
 
 	fn_copy = palloc_get_page(PAL_ZERO);
 	if (fn_copy == NULL)
-		// return TID_ERROR; // or return -1?
-		exit(-1); // or return -1?
+		exit(-1);
 	strlcpy(fn_copy, cmd_line, fn_size);
 
-	// tid = process_exec(fn_copy); // line 196
-
-	// if (tid < 0)
-	// {
-	// 	return -1;
-	// }
 	if (process_exec(fn_copy) == -1)
 	{
-		return -1;
+		exit(-1);
 	}
 
 	NOT_REACHED();
-	return 0;
+	return;
+	
 	/********* P2 syscall: 추가 코드 - 끝 *********/
 }
 
-int fork(const char *thread_name)
+int wait(tid_t pid)
 {
-	tid_t tid;
-	tid = process_fork(thread_name, &thread_current()->parent_if);
-
-	return tid;
-
-	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
-	// if fork 실패: return TID_ERROR
-
-	// thread_exit();
+	return process_wait(pid);
 }
 
 // P2 sys call; `initial_size`를 가진 파일을 만듦
@@ -292,7 +281,6 @@ int open(const char *file)
 	// }
 	// return -1;
 	// ------------------내 코드 끝 -------------------------
-
 }
 
 // P2 sys call: `fd`로 open 되어 있는 파일의 바이트 사이즈 반환
@@ -331,7 +319,7 @@ int read(int fd, void *buffer, unsigned size)
 	}
 
 	// standard input (여기 다름! )
-	if (f == STDIN)
+	if (f == STDIN_FILE)
 	{
 		return input_getc();
 	}
@@ -406,7 +394,7 @@ int write(int fd, const void *buffer, unsigned size)
 		return -1;
 	}
 
-	if (f == STDOUT)
+	if (f == STDOUT_FILE)
 	{
 		putbuf(buffer, size);
 		return size;
@@ -498,6 +486,7 @@ void close(int fd)
 	file_close(f);
 	// lock_release(&filesys_lock);
 }
+
 /******* P2 syscall: TODO The main system call interface & body - 끝 *******/
 
 /****** P2 syscall: kaist pdf에서 복붙한 코드 - 시작 - unsure ******/
@@ -526,7 +515,6 @@ void close(int fd)
 // 	return error_code != -1;
 // }
 /********************* pdf에서 복붙한 코드: unsure - 끝 *****************/
-
 
 /*Helper Functions*/
 /*Add file to File Descriptor Table
