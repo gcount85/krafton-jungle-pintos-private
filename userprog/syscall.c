@@ -8,50 +8,18 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 
-/*#####Newly added in Project 2#####*/
-/*#####File System call#####*/
+/******* P2 syscall: syscall interface를 위한 헤더 추가 - 시작 *******/
 #include "filesys/file.h"
 #include "filesys/filesys.h"
-#include "threads/synch.h"
-#include "threads/init.h"
-#include "userprog/process.h"
-#include "devices/input.h"
-#include "threads/palloc.h"
+#include "lib/kernel/stdio.h"
+#include "userprog/process.h" // exec 헤더
+#include <string.h>			  // strcpy를 위한?
+#include "threads/palloc.h"	  // EXEC PALLOG GET PAGE 헤더
+
+/******* P2 syscall: syscall interface를 위한 헤더 추가 - 끝 *******/
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
-
-/*#############Newly added in Project 2###############*/
-/*-----------------Process System Call------------------*/
-typedef int pid_t;
-typedef int32_t off_t;
-
-void halt(void) NO_RETURN;
-void exit(int status) NO_RETURN;
-tid_t fork(const char *thread_name);
-int exec(const char *file);
-int wait(pid_t pid);
-/*--------------------File System call------------------*/
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-
-bool create(const char *file, unsigned initial_size);
-bool remove(const char *file);
-int open(const char *file);
-int filesize(int fd);
-int read(int fd, void *buffer, unsigned length);
-int write(int fd, const void *buffer, unsigned length);
-void seek(int fd, unsigned position);
-unsigned tell(int fd);
-void close(int fd);
-
-void check_address(void *addr);
-
-struct file *find_file_by_fd(int fd);
-void remove_file_from_fdt(int fd);
-int add_file_to_fdt(struct file *file);
-
-/*###################################################*/
 
 /* System call.
  *
@@ -66,6 +34,13 @@ int add_file_to_fdt(struct file *file);
 #define MSR_LSTAR 0xc0000082		/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
+/***************** P2 syscall: 매크로 추가 *****************/
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDIN 1	 // P2 sys call: FDT의 FD 0 매크로 선언
+#define STDOUT 2 // P2 sys call: FDT의 FD 1 매크로 선언
+/***************** P2 syscall: 매크로 추가 - 끝 *****************/
+
 void syscall_init(void)
 {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
@@ -78,248 +53,241 @@ void syscall_init(void)
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
-	/*##############Newly added in Project 2################*/
-	/*######################System call######################*/
+	/********* P2 syscall: filesys_lock 초기화를 위한 코드 추가 *********/
 	lock_init(&filesys_lock);
-	/*#####################################################*/
+	/********* P2 syscall: filesys_lock 초기화를 위한 코드 추가 - 끝 *********/
 }
 
-/*#####Newly added in Project 2#####*/
-/*##### System call #####*/
-/* Check validity of address
-   Invalid Cases
-   1. addr is a null pointer
-   2. *addr is not in user area
-   3. page is not allocated */
-void check_address(void *addr)
-{
-	struct thread *curr = thread_current();
-	if (addr == NULL || !is_user_vaddr(addr) || pml4_get_page(curr->pml4, addr) == NULL)
-	{
-		exit(-1);
-	}
-}
-
-/* The main system call interface */
+/******* P2 syscall: TODO The main system call interface & body *******/
+/* ***** 중요한 점 ******
+ * 1. syscall-nr.h 에서 번호 확인
+ * 2. 유저가 준 포인터 에러처리; (void *)0 같은 포인터 넘겨주는 경우 등
+ * (2번의 경우 포인터를 받는 함수들만 check_address 만들어서 확인하기) */
 void syscall_handler(struct intr_frame *f)
 {
-	/*##### Newly added in Project 2 #####*/
-	/*##### System Call #####*/
 	// TODO: Your implementation goes here.
-
-	/* Copy system call arguments and call system call*/
-	// printf ("system call!\n");
-	int syscall_num = f->R.rax;
+	// 	`%rdi`, `%rsi`, `%rdx`, `%r10`, `%r8`, and `%r9`
 	switch (f->R.rax)
 	{
-	/* Process related system calls */
-	case SYS_HALT:
+	case SYS_HALT: /* Halt the operating system. */
 		halt();
 		break;
-
-	case SYS_EXIT:
+	case SYS_EXIT: /* Terminate this process. */
 		exit(f->R.rdi);
 		break;
-
-	case SYS_FORK:
+	case SYS_FORK: /* Clone current process. */
 		memcpy(&thread_current()->parent_if, f, sizeof(struct intr_frame));
 		f->R.rax = fork(f->R.rdi);
 		break;
-
-	case SYS_EXEC:
+	case SYS_EXEC: /* Switch current process. */
 		if (exec(f->R.rdi) == -1)
 		{
 			exit(-1);
 		}
+		// f->R.rax = exec(f->R.rdi);
 		break;
-
-	case SYS_WAIT:
+	case SYS_WAIT: /* Wait for a child process to die. */
 		f->R.rax = wait(f->R.rdi);
 		break;
-
-	/*File System related system calls*/
-	case SYS_CREATE:
+	case SYS_CREATE: /* Create a file. */
 		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
-
-	case SYS_REMOVE:
+	case SYS_REMOVE: /* Delete a file. */
 		f->R.rax = remove(f->R.rdi);
 		break;
-
-	case SYS_OPEN:
+	case SYS_OPEN: /* Open a file. */
 		f->R.rax = open(f->R.rdi);
 		break;
-
-	case SYS_FILESIZE:
+	case SYS_FILESIZE: /* Obtain a file's size. */
 		f->R.rax = filesize(f->R.rdi);
 		break;
-
-	case SYS_READ:
+	case SYS_READ: /* Read from a file. */
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
-
-	case SYS_WRITE:
+	case SYS_WRITE: /* Write to a file. */
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
-
-	case SYS_SEEK:
+	case SYS_SEEK: /* Change position in a file. */
 		seek(f->R.rdi, f->R.rsi);
 		break;
-
-	case SYS_TELL:
+	case SYS_TELL: /* Report current position in a file. */
 		f->R.rax = tell(f->R.rdi);
 		break;
-
 	case SYS_CLOSE:
 		close(f->R.rdi);
 		break;
-
 	default:
 		exit(-1);
-		break;
 	}
-	// thread_exit ();
+	// printf("system call!\n");
 }
-/*##################Process System call######################*/
+
+// P2 sys call: 유저가 준 포인터가 유효한 지 확인
+void check_address(void *addr)
+{
+	struct thread *cur = thread_current();
+	if (!addr || !is_user_vaddr(addr) || pml4_get_page(cur->pml4, addr) == NULL)
+	{
+		exit(-1);
+	}
+}
+
+/* P2 syscall: sys call body
+ * 다 만들고 헤더에 추가하기
+ *  */
 void halt(void)
 {
 	power_off();
 }
 
-/**/
 void exit(int status)
 {
-	struct thread *curr = thread_current();
-	curr->exit_status = status;
-
-	printf("%s: exit(%d)\n", curr->name, curr->exit_status);
+	struct thread *cur = thread_current();
+	cur->exit_status = status;
+	printf("%s: exit(%d)\n", cur->name, cur->exit_status);
 	thread_exit();
 }
 
-/* Waits for thread TID / process PID to die and returns its exit status */
-int wait(pid_t pid)
+int wait(tid_t pid)
 {
 	return process_wait(pid);
+	// thread_exit();
 }
 
-/* Run program which execute 'file' (switch current process)
-   Creates thread and run exec()
-   Returns pid of the new child process if child load file successfully, -1 on failure
-   Parent calling exec should wait
-   until child process is created and loads the executable completely */
-int exec(const char *file)
+int exec(const char *cmd_line)
 {
-	check_address(file);
-	/* wait을 여기에서 부르려면 child가 exit을 불러야 한다는 건데.. 그럼 조건에 맞지 않음
-	   자식은 load 후 sema_up을 불러야 하는데 이걸 어디서 부르지 process.c의 load() 안에서 ?*/
-	int fn_size = strlen(file) + 1;
-	char *fn_copy = palloc_get_page(PAL_ZERO);
 
-	/* page allocation failure */
+	/********* P2 syscall: 추가 코드 - 시작 *********/
+
+	check_address(cmd_line);
+	tid_t tid;
+	char *fn_copy;
+	int fn_size = strlen(cmd_line) + 1;
+
+	fn_copy = palloc_get_page(PAL_ZERO);
 	if (fn_copy == NULL)
-	{
-		exit(-1);
-	}
+		// return TID_ERROR; // or return -1?
+		exit(-1); // or return -1?
+	strlcpy(fn_copy, cmd_line, fn_size);
 
-	strlcpy(fn_copy, file, fn_size);
+	// tid = process_exec(fn_copy); // line 196
 
+	// if (tid < 0)
+	// {
+	// 	return -1;
+	// }
 	if (process_exec(fn_copy) == -1)
 	{
 		return -1;
 	}
 
-	NOT_REACHED(); /* 이건 왜 넣는 건지....? */
+	NOT_REACHED();
 	return 0;
+	/********* P2 syscall: 추가 코드 - 끝 *********/
 }
 
-tid_t fork(const char *thread_name)
+int fork(const char *thread_name)
 {
-	return process_fork(thread_name, &thread_current()->parent_if);
+	tid_t tid;
+	tid = process_fork(thread_name, &thread_current()->parent_if);
+
+	return tid;
+
+	// if fork 성공(자식 프로세스에서 리턴값 0): return 자식의 pid
+	// if fork 실패: return TID_ERROR
+
+	// thread_exit();
 }
 
-/*##########################################################*/
-
-/*##################File System call###################*/
-/* Create initial_size of file
-   Return true on success, false on failure (already exist / internal memory allocation fail)*/
+// P2 sys call; `initial_size`를 가진 파일을 만듦
 bool create(const char *file, unsigned initial_size)
 {
 	check_address(file);
 
 	lock_acquire(&filesys_lock);
-	bool success = filesys_create(file, initial_size);
+	bool bool_created = filesys_create(file, initial_size);
 	lock_release(&filesys_lock);
-
-	return success;
+	return bool_created;
 }
 
-/* Delete a file named 'file'
-   Return true on success, false on failure (not exist / internal memory allocation fail)
-   A file may be removed regardless of whether it is open or closed
-   Removing an open file does not close it*/
+// P2 sys call; `file`이라는 이름을 가진 파일 삭제
 bool remove(const char *file)
 {
 	check_address(file);
 
 	lock_acquire(&filesys_lock);
-	bool success = filesys_remove(file);
+	bool bool_removed = filesys_remove(file);
 	lock_release(&filesys_lock);
-
-	return success;
+	return bool_removed;
 }
 
-/* Open file 'file'
-   Return nonnegative file descriptor or -1 if the file could not be opened
-   File descriptors numbered 0, 1 are reserved for the console (0:STDIN_FILENO/1:STDOUT_FILENO)
-   If file descriptor table is full, close the file
-   */
+// P2 sys call: `file` 안의 path에 있는 file open + fd 반환
 int open(const char *file)
 {
 	check_address(file);
 
-	lock_acquire(&filesys_lock);
-	/* Try to open file */
-	struct file *open_file = filesys_open(file);
-	lock_release(&filesys_lock);
+	struct thread *cur = thread_current();
 
-	/* Return -1 when file could not be opened */
-	if (open_file == NULL)
+	/* 반복문으로 비어있는 곳 찾기(next_fd 필드 사용X) */
+	int i = 2;
+	// while (true) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
+	while (i < OPEN_MAX) // 비어 있는 fdt 엔트리를 찾을 때까지 검색
 	{
-		return -1;
+		if (cur->fdt[i] != 0)
+		{
+			continue;
+		}
+		else
+		{
+			lock_acquire(&filesys_lock);
+			struct file *f = filesys_open(file);
+			lock_release(&filesys_lock);
+			if (f == NULL)
+			{
+				return -1;
+			}
+			cur->fdt[i] = f;
+			return i;
+		}
+		i++;
 	}
-
-	/* Add file to File descriptor table */
-	int fd = add_file_to_fdt(open_file);
-
-	/* Close the file when fdt is full */
-	if (fd == -1)
-	{
-		file_close(open_file);
-	}
-
-	return fd;
+	return -1;
 }
 
-/* Returns the size, in bytes, of the file open as fd */
+// P2 sys call: `fd`로 open 되어 있는 파일의 바이트 사이즈 반환
 int filesize(int fd)
 {
-	struct file *file = find_file_by_fd(fd);
+	struct thread *cur = thread_current();
+	struct file *f = cur->fdt[fd];
 
-	if (file == NULL)
+	if (fd < 2 || f == 0)
 	{
 		return -1;
 	}
 
-	return file_length(file);
+	return file_length(f);
 }
 
-/* Read size bytes from the file open as fd into buffer
-   Return the number of bytes actually read
-   (0 at end of file / -1 if file could not be read)
-   If fd is 0, it reads from the keyboard using input_getc()
-*/
-int read(int fd, void *buffer, unsigned length)
+// P2 sys call: fd`로 open 되어 있는 파일로부터 `size` 바이트를 읽어내 `buffer`에 담음 + 실제로 읽어낸 바이트 반환
+int read(int fd, void *buffer, unsigned size)
 {
+	// check_address(buffer);
+
+	// struct thread *cur = thread_current();
+	// struct file *f = cur->fdt[fd];
+
+	// if (fd < 0 || f == NULL || f == STDOUT)
+	// {
+	// 	return -1;
+	// }
+
+	// if (f == STDIN)
+	// {
+	// 	return input_getc();
+	// }
+
+	// return file_read(f, buffer, size); // 0 반환 → 파일의 끝을 의미
+
 	check_address(buffer);
 	// check_address (buffer + length - 1);
 
@@ -330,14 +298,14 @@ int read(int fd, void *buffer, unsigned length)
 	{
 		unsigned char *buf = buffer;
 
-		for (bytes_read = 0; bytes_read < length; bytes_read++)
+		for (bytes_read = 0; bytes_read < size; bytes_read++)
 		{
 			char key = input_getc();
 			*buf++ = key;
 			if (key == '\0')
 				break;
 		}
-		// bytes_read = length;
+		// bytes_read = size;
 
 		return bytes_read;
 	}
@@ -351,7 +319,8 @@ int read(int fd, void *buffer, unsigned length)
 	/* Normal File */
 	else
 	{
-		struct file *file = find_file_by_fd(fd);
+		struct thread *cur = thread_current();
+		struct file *file = cur->fdt[fd];
 
 		/* File not exist */
 		if (file == NULL)
@@ -360,19 +329,38 @@ int read(int fd, void *buffer, unsigned length)
 		}
 
 		lock_acquire(&filesys_lock);
-		bytes_read = file_read(file, buffer, length);
+		bytes_read = file_read(file, buffer, size);
 		lock_release(&filesys_lock);
 
 		return bytes_read;
 	}
 }
 
-/* Writes length bytes of data from buffer to open file fd
-   Return the number of bytes actually written
-   If fd is 1, it writes to the console using putbuf()
-*/
-int write(int fd, const void *buffer, unsigned length)
+// P2 sys call: `buffer`에 담긴 `size` 바이트를 open file `fd`에 쓰기 + 실제로 쓰인 바이트의 숫자를 반환
+int write(int fd, const void *buffer, unsigned size)
 {
+	// check_address(buffer);
+
+	// struct thread *cur = thread_current();
+	// struct file *f = cur->fdt[fd];
+	// off_t byte_written;
+
+	// if (fd < 0 || f == NULL || f == STDIN) // 에러조건문 추가
+	// {
+	// 	return -1;
+	// }
+
+	// if (f == STDOUT)
+	// {
+	// 	putbuf(buffer, size);
+	// 	return size;
+	// }
+
+	// lock_acquire(&filesys_lock);
+	// byte_written = file_write(f, buffer, size); // 내 원래 코드
+	// lock_release(&filesys_lock);
+	// return byte_written;
+
 	check_address(buffer);
 
 	int bytes_written;
@@ -380,8 +368,8 @@ int write(int fd, const void *buffer, unsigned length)
 	/* Standart Output */
 	if (fd == STDOUT_FILENO)
 	{
-		putbuf(buffer, length);
-		bytes_written = length;
+		putbuf(buffer, size);
+		bytes_written = size;
 		return bytes_written;
 	}
 
@@ -394,127 +382,87 @@ int write(int fd, const void *buffer, unsigned length)
 	/* Normal file */
 	else
 	{
-		struct file *file = find_file_by_fd(fd);
 
+		struct thread *cur = thread_current();
+		struct file *file = cur->fdt[fd];
 		if (file == NULL)
 		{
 			return -1;
 		}
 
 		lock_acquire(&filesys_lock);
-		bytes_written = file_write(file, buffer, length);
+		bytes_written = file_write(file, buffer, size);
 		lock_release(&filesys_lock);
 
 		return bytes_written;
 	}
 }
 
-/* Sets the current position in file to position bytes from the
-   start of the file
-   Gitbook : Changes the next byte to be read or written in open file fd to position,
-   expressed in bytes from the beginning of the file
-*/
-void seek(int fd, unsigned position)
+// P2 sys call: 파일의 위치(offset)를 이동하는 함수. open file `fd`에서 읽히거나 적혀야 하는 다음 바이트를 `position` 위치로 바꿈
+void seek(int fd, unsigned new_position)
 {
-	struct file *file = find_file_by_fd(fd);
+	struct thread *cur = thread_current();
 
-	/* Ignore STDIN(value:1), STDOUT(value:2) */
-	if (file <= 2)
+	if (fd < 2 || cur->fdt[fd] == 0)
+	{
 		return;
-
-	file_seek(file, position);
+	}
+	file_seek(cur->fdt[fd], new_position);
 }
 
-/* Return the current poisition in file mapped with fd
-   as a byte offset from the start of the file
-   Gitbook : Returns the position of the next byte to be read or written
-   in open file fd, expressed in bytes from the beginning of the file
-*/
+// P2 sys call: open file `fd`에서 읽히거나 적혀야 하는 다음 바이트의 포지션을 반환
 unsigned tell(int fd)
 {
-	struct file *file = find_file_by_fd(fd);
+	struct thread *cur = thread_current();
 
-	/* Ignore STDIN(value:1), STDOUT(value:2) */
-	if (file <= 2)
+	if (fd < 2 || cur->fdt[fd] == 0)
+	{
 		return;
+	}
 
-	off_t position = file_tell(file);
-	return position;
+	return file_tell(cur->fdt[fd]);
 }
 
-/* Close file opened as fd */
+// 러닝 스레드의 열린 파일 모두 닫음
 void close(int fd)
 {
-	struct file *close_file = find_file_by_fd(fd);
-
-	/* If file not exists*/
-	if (close_file == NULL)
+	struct thread *cur = thread_current();
+	struct file *f = cur->fdt[fd];
+	if (fd < 2 || f == 0 )
 	{
 		return;
 	}
+	cur->fdt[fd] = NULL; // 이거 f = 0; 으로 하면 에러남! 조심!
 
-	remove_file_from_fdt(fd);
-
-	/* STDIN or STDOUT */
-	if (fd <= 1 || close_file <= 2)
-		return;
-
-	// lock_acquire (&filesys_lock);
-	file_close(close_file);
-	// lock_release (&filesys_lock);
+	// lock_acquire(&filesys_lock);
+	file_close(f);
+	// lock_release(&filesys_lock);
 }
+/******* P2 syscall: TODO The main system call interface & body - 끝 *******/
 
-/*Helper Functions*/
-/*Add file to File Descriptor Table
-  Return file descriptor on success, -1 on failure
-*/
-int add_file_to_fdt(struct file *file)
-{
-	struct thread *curr = thread_current();
+/****** P2 syscall: kaist pdf에서 복붙한 코드 - 시작 - unsure ******/
+// /* Reads a byte at user virtual address UADDR.
+// UADDR must be below PHYS_BASE.
+// Returns the byte value if successful, -1 if a segfault
+// occurred. */
+// static int get_user(const uint8_t *uaddr)
+// {
+// 	int result;
+// 	asm("movl $1f, %0; movzbl %1, %0; 1:"
+// 		: "=&a"(result)
+// 		: "m"(*uaddr));
+// 	return result;
+// }
 
-	/*Find an empty entry*/
-	while ((curr->next_fd < FDCOUNT_LIMIT) && (curr->fdt[curr->next_fd]))
-	{
-		curr->next_fd++;
-	}
-
-	/*If FDT is full, return -1*/
-	if (curr->next_fd >= FDCOUNT_LIMIT)
-	{
-		return -1;
-	}
-
-	/* Add file into FDT */
-	// curr->next_fd = fd;
-	curr->fdt[curr->next_fd] = file;
-
-	return curr->next_fd;
-}
-
-/*Search thread's fdt and return file struct pointer*/
-struct file *find_file_by_fd(int fd)
-{
-	struct thread *curr = thread_current();
-
-	if (fd < 0 || fd >= FDCOUNT_LIMIT)
-	{
-		return NULL;
-	}
-
-	return curr->fdt[fd];
-}
-
-/*Remove file from file descriptor table*/
-void remove_file_from_fdt(int fd)
-{
-	struct thread *curr = thread_current();
-
-	if (fd < 0 || fd >= FDCOUNT_LIMIT)
-	{
-		return;
-	}
-
-	curr->fdt[fd] = NULL;
-	// curr->next_fd = fd;
-}
-/*###################################################*/
+// /* Writes BYTE to user address UDST.
+// UDST must be below PHYS_BASE.
+// Returns true if successful, false if a segfault occurred.*/
+// static bool put_user(uint8_t *udst, uint8_t byte)
+// {
+// 	int error_code;
+// 	asm("movl $1f, %0; movb %b2, %1; 1:"
+// 		: "=&a"(error_code), "=m"(*udst)
+// 		: "q"(byte));
+// 	return error_code != -1;
+// }
+/********************* pdf에서 복붙한 코드: unsure - 끝 *****************/

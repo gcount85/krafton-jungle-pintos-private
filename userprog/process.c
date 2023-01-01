@@ -33,7 +33,6 @@ static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
-void stack_arguments(int argc, char **argv, struct intr_frame *if_);
 
 /* General process initializer for initd and other process. */
 static void process_init(void)
@@ -126,7 +125,6 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 	void *parent_page;
 	void *newpage;
 	bool writable;
-	// printf("여기여기여기10\n");
 
 	/********* P2 syscall: 추가한 코드 - 시작 *********/
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
@@ -232,6 +230,12 @@ static void __do_fork(void *aux)
 	// }
 
 	/* walking parent fdt*/
+if (parent->next_fd == OPEN_MAX)
+	{
+		goto error;
+	}
+
+	/* walking parent fdt*/
 	for (int i = 0; i < OPEN_MAX; i++)
 	{
 		struct file *file = parent->fdt[i];
@@ -257,6 +261,7 @@ static void __do_fork(void *aux)
 		/* Add file to current thread's fdt */
 		current->fdt[i] = copy_file;
 	}
+	current->next_fd = parent->next_fd;
 
 	// printf("여기여기여기4\n");
 
@@ -520,7 +525,8 @@ load(const char *file_name, struct intr_frame *if_)
 	process_activate(thread_current());
 
 	/* Open executable file. */
-	file = filesys_open(argv[0]);
+	// file = filesys_open(argv[0]);
+	file = filesys_open(file_name);
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", file_name);
@@ -608,7 +614,7 @@ load(const char *file_name, struct intr_frame *if_)
 	/* TODO : Implement argument passing(see project2 / argument_passing.html). */
 	// argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
-	argument_stack(argv, argc, if_);
+	stack_arguments(argc, argv, if_);
 	// hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
 	// **************** P2 arg passing: args passing - 끝 ********************** //
 
@@ -847,115 +853,136 @@ setup_stack(struct intr_frame *if_)
 // argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
 // count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소(**rsp는 스택에 있는 데이터)
 // === push 하면서 여유 공간 있는지 확인 ?
-void argument_stack(char **argv, int argc, struct intr_frame *_if)
+void stack_arguments(int argc, char **argv, struct intr_frame *if_)
 {
+ // 혜지코드
+ 	char *argv_addr[128]; // array that saves addresses of arguments
 
-	/* ================집단지성 디버깅 코드 - OK =========================== */
+	/* Pushing arguments into user stack (right -> left) */
+	for (int i = argc - 1; i >= 0; i--)
+	{
+		int argv_len = strlen(argv[i]) + 1;
+		if_->rsp -= argv_len; // including NULL
+		memcpy(if_->rsp, argv[i], argv_len);
+		argv_addr[i] = (char *)if_->rsp; // save addr of argument for later
+	}
+
+	/* Word-align padding */
+	/* Stack pointer(address) must be multiples of 8 */
+	while (if_->rsp % 8 != 0)
+	{
+		if_->rsp--;
+		*(uint8_t *)if_->rsp = 0;
+	}
+
+	/* Addresses of each arguments */
+	for (int i = argc; i >= 0; i--)
+	{
+		if_->rsp = if_->rsp - 8;
+		if (i == argc)
+			memset(if_->rsp, 0, sizeof(char **));
+		else
+			memcpy(if_->rsp, &argv_addr[i], sizeof(char **));
+	}
+	/* Set %rdi to argc */
+	if_->R.rdi = argc;
+	/* Point %rsi to the address of argv[0] */
+	if_->R.rsi = if_->rsp;
+
+	/* Return Address */
+	if_->rsp -= 8;
+	memset(if_->rsp, 0, sizeof(void *));
+
+	////////
+
+
+	// /* ================집단지성 디버깅 코드 - OK =========================== */
 
 	// int addr[64]; // 이 메모리 공간은 어디서 오는가?
-	// uintptr_t starting = _if->rsp;
+	// uintptr_t starting = if_->rsp;
 
 	for (int i = argc - 1; i >= 0; i--)
 	{
 		// addr[i] = USER_STACK;
-		_if->rsp -= (strlen(argv[i]) + 1);
-		memcpy(_if->rsp, argv[i], strlen(argv[i]) + 1);
-		argv[i] = (char *)_if->rsp;
+		if_->rsp -= (strlen(argv[i]) + 1);
+		memcpy(if_->rsp, argv[i], strlen(argv[i]) + 1);
+		argv[i] = (char *)if_->rsp;
 	}
 
-	_if->rsp -= (_if->rsp % 8);				 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
-	memset(_if->rsp, 0, 8 * (_if->rsp % 8)); // end of arg string; 0으로 init
+	if_->rsp -= (if_->rsp % 8);				 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
+	memset(if_->rsp, 0, 8 * (if_->rsp % 8)); // end of arg string; 0으로 init
 
-	// while (_if->rsp % 8 != 0)
+	// while (if_->rsp % 8 != 0)
 	// {
-	// 	_if->rsp--;
-	// 	*(uint8_t *)_if->rsp = 0;
+	// 	if_->rsp--;
+	// 	*(uint8_t *)if_->rsp = 0;
 	// }
 
-	_if->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
-	memset(_if->rsp, 0, 8); // end of arg string; 0으로 init
+	if_->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
+	memset(if_->rsp, 0, 8); // end of arg string; 0으로 init
 
-	// _if->rsp -= 8;
-	// memcpy(_if->rsp, starting, 8);
+	// if_->rsp -= 8;
+	// memcpy(if_->rsp, starting, 8);
 
 	// 유저스택의 argv[n] ... argv[0]의 시작 주소를 유저 스택에 추가
 	for (int i = argc - 1; i >= 0; i--)
 	{
-		_if->rsp -= 8;
-		// memcpy(_if->rsp, argv[i], 8);
-		*(char **)_if->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
+		if_->rsp -= 8;
+		// memcpy(if_->rsp, argv[i], 8);
+		*(char **)if_->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
 									  // starting -= (strlen(argv[i]) + 1);
 	}
 
 	// // push argv set의 시작 주소
-	// starting = _if->rsp;
-	// _if->rsp -= 8;
-	// memcpy(_if->rsp, starting, 8);
+	// starting = if_->rsp;
+	// if_->rsp -= 8;
+	// memcpy(if_->rsp, starting, 8);
 
 	// // push argc
-	// _if->rsp -= 8;
-	// memcpy(_if->rsp, argc, 8);
+	// if_->rsp -= 8;
+	// memcpy(if_->rsp, argc, 8);
 
 	// push return adress (0을 이렇게 넣는게 맞냐.. )
-	_if->rsp -= 8;
-	memset(_if->rsp, 0, 8);
+	if_->rsp -= 8;
+	memset(if_->rsp, 0, 8);
 
 	// push argv set의 시작 주소 & push argc
-	_if->R.rdi = argc;
-	_if->R.rsi = (uint64_t)_if->rsp + 8;
+	if_->R.rdi = argc;
+	if_->R.rsi = (uint64_t)if_->rsp + 8;
 	/* ================ 집단지성 디버깅 코드 - 끝 =========================== */
 
 	/* ================Heruing 코드 - OK =========================== */
-	// char *rsp_origin = _if->rsp;
+	// char *rsp_origin = if_->rsp;
 	// for (int i = argc - 1; i >= 0; i--)
 	// {
 	// 	int arglen = strlen(argv[i]) + 1; // NULL(+1)
-	// 	_if->rsp -= arglen;
-	// 	memcpy(_if->rsp, argv[i], arglen);
+	// 	if_->rsp -= arglen;
+	// 	memcpy(if_->rsp, argv[i], arglen);
 	// }
 
 	// // 8byte padding
-	// int alignPadding = _if->rsp % 8;
-	// _if->rsp -= alignPadding;
+	// int alignPadding = if_->rsp % 8;
+	// if_->rsp -= alignPadding;
 	// if (alignPadding)
-	// 	memset(_if->rsp, 0, alignPadding);
+	// 	memset(if_->rsp, 0, alignPadding);
 
 	// // sentinel pointer argv[argc]
-	// _if->rsp -= sizeof(char *);
-	// memset(_if->rsp, 0, sizeof(char *));
+	// if_->rsp -= sizeof(char *);
+	// memset(if_->rsp, 0, sizeof(char *));
 
 	// for (int j = argc - 1; j >= 0; j--)
 	// {
-	// 	_if->rsp -= sizeof(char *);
+	// 	if_->rsp -= sizeof(char *);
 	// 	int arglen = strlen(argv[j]) + 1;
 	// 	rsp_origin -= arglen;
-	// 	memcpy(_if->rsp, &rsp_origin, sizeof(char *));
+	// 	memcpy(if_->rsp, &rsp_origin, sizeof(char *));
 	// }
 
 	// // fake "return address" for function return
 	// // for user stack frame structure 형식이 멋져보이려고
-	// _if->rsp -= sizeof(char *);
-	// memset(_if->rsp, 0, sizeof(char *));
+	// if_->rsp -= sizeof(char *);
+	// memset(if_->rsp, 0, sizeof(char *));
 	/* ================Heruing 코드 - 끝 =========================== */
 }
 
-/********* P2 syscall: 추가한 코드 - 시작 *********/
-// 자식 리스트를 순회하며 tid가 pid인 스레드 반환
-struct thread *get_child(int pid)
-{
-	struct thread *current = thread_current();
-	struct list *child_list = &current->child_list;
-	struct list_elem *e;
-	for (e = list_begin(child_list);
-		 e != list_end(child_list);
-		 e = list_next(e))
-	{
-		struct thread *t = list_entry(e, struct thread, child_elem);
-		if (t->tid == pid)
-		{
-			return t;
-		}
-	}
-	return NULL;
-}
-/********* P2 syscall: 추가한 코드 - 끝 *********/
+

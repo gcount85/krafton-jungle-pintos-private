@@ -5,37 +5,41 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
-/*#####Newly added in Project 2#####*/
-#include "threads/synch.h"
-/*#################################*/
+
+/*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
+#include "threads/synch.h" // thread 구조체의 세마포어 필드를 위함
+
+/*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
 
-
 /* States in a thread's life cycle. */
-enum thread_status {
-	THREAD_RUNNING,     /* Running thread. */
-	THREAD_READY,       /* Not running but ready to run. */
-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
+enum thread_status
+{
+	THREAD_RUNNING, /* Running thread. */
+	THREAD_READY,	/* Not running but ready to run. */
+	THREAD_BLOCKED, /* Waiting for an event to trigger. */
+	THREAD_DYING	/* About to be destroyed. */
 };
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
-#define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
+#define TID_ERROR ((tid_t)-1) /* Error value for tid_t. */
 
 /* Thread priorities. */
-#define PRI_MIN 0                       /* Lowest priority. */
-#define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+#define PRI_MIN 0	   /* Lowest priority. */
+#define PRI_DEFAULT 31 /* Default priority. */
+#define PRI_MAX 63	   /* Highest priority. */
 
-/*#####Newly added in Project 2#####*/
-/*#######File System Call#######*/
-#define FDT_PAGES 3  /* 8bytes */
-#define FDT_ENTRY_MAX 1<<9
-#define FDCOUNT_LIMIT FDT_PAGES *(1 << 9) //Limit fdIdx
+/*************** P2 sys call: OPEN_MAX 값 정의 ***************/
+#define FDT_PAGES 3
+#define OPEN_MAX (FDT_PAGES * (1 << 9))
+#define OPEN_MAX FDT_PAGES *(1 << 9) // hj 
+
+/*************** P2 sys call: OPEN_MAX 값 정의 - 끝 ***************/
 
 /* A kernel thread or user process.
  *
@@ -94,48 +98,42 @@ typedef int tid_t;
  * only because they are mutually exclusive: only a thread in the
  * ready state is on the run queue, whereas only a thread in the
  * blocked state is on a semaphore wait list. */
-struct thread {
+struct thread
+{
 	/* Owned by thread.c. */
-	tid_t tid;                          /* Thread identifier. */
-	enum thread_status status;          /* Thread state. */
-	char name[16];                      /* Name (for debugging purposes). */
-	int priority;                       /* Priority. */
+	tid_t tid;				   /* Thread identifier. */
+	enum thread_status status; /* Thread state. */
+	char name[16];			   /* Name (for debugging purposes). */
+	int priority;			   /* Priority. */
 
-	/*################Newly added in Project 1#################*/
-	/*-----------------------Alarm Clock----------------------*/
-	int64_t wakeup_tick; 				/*Tick till wake up. */
-	/*-------------------Priority Donation--------------------*/
-	int origin_priority;  			/* Original priority */
-	struct lock *lock_address; 			/* Address of which the thread is wating for lock */
-	struct list multiple_donation;					/* Priority multiple_donation list */
-	struct list_elem multiple_donation_elem; 		/* multiple_donation list element */
-	/*#########################################################*/
+	// ****************** P1: 추가한 필드 *************************
+	int64_t wakeup_tick;					 // P1 alarm: tick till wake up
+	int origin_priority;					 // P1 donation: 원래의 우선순위 값
+	struct lock *lock_address;				 // P1 donation: 락 주소
+	struct list multiple_donation;			 // P1 donation
+	struct list_elem multiple_donation_elem; // P1 donation
+	// ****************** P1: 추가한 필드 - 끝 *************************
+
+	// ****************** P2: 추가한 필드 *************************
+	// struct thread *parent_process;	// Pointer to parent process
+	struct list child_list;			// Pointers to the children list
+	struct list_elem child_elem;	// Pointers to the children list-elem
+	struct semaphore sema_for_wait; // `process_wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_fork; // `exec()`을 위한 세마포어 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_free; // 자식의 exit 후 부모를 다시 자유롭게 해줌
+	int exit_status;				// 스레드의 종료 상태를 나타냄
+	struct file **fdt;				// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)
+	struct intr_frame parent_if;	// 부모의 tf 값 (fork)
+	struct file *running_f;			// 실행중인 파일
+	int next_fd;
+	// ****************** P2: 추가한 필드 - 끝 ********************
 
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;              /* List element. */
-
-	/*###############Newly added in Project 2###############*/
-	/*-----------------Process System Call------------------*/
-	struct list child_list; 	/* Child process list */
-	struct list_elem child_elem; /* Child process list element */
-	struct semaphore sema_for_wait; /* Semaphore for wait() - to signal to parent process*/
-	struct semaphore sema_for_fork; /* Semaphore for fork() */
-	struct semaphore sema_for_free; /* Semaphore for reaping zombie child processes */
-
-	struct intr_frame parent_if; /* Interrupt frame for switching */
-
-	int exit_status;   /* for exit(), wait()*/
-	/*-----------------File System Call --------------------*/
-	struct file **fdt; /* Pointer to File Descriptor Table*/
-	int next_fd; /* Index for open spot in FDT */
-	struct file *running_f; /* Running File */
-	/*#####################################################*/
-
-	
+	struct list_elem elem; /* List element. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
-	uint64_t *pml4;                     /* Page map level 4 */
+	uint64_t *pml4; /* Page map level 4 */
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
@@ -143,8 +141,8 @@ struct thread {
 #endif
 
 	/* Owned by thread.c. */
-	struct intr_frame tf;               /* Information for switching */
-	unsigned magic;                     /* Detects stack overflow. */
+	struct intr_frame tf; /* Information for switching */
+	unsigned magic;		  /* Detects stack overflow. */
 };
 
 /* If false (default), use round-robin scheduler.
@@ -152,46 +150,50 @@ struct thread {
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
-void thread_init (void);
-void thread_start (void);
+void thread_init(void);
+void thread_start(void);
 
-void thread_tick (void);
-void thread_print_stats (void);
+void thread_tick(void);
+void thread_print_stats(void);
 
-typedef void thread_func (void *aux);
-tid_t thread_create (const char *name, int priority, thread_func *, void *);
+typedef void thread_func(void *aux);
+tid_t thread_create(const char *name, int priority, thread_func *, void *);
 
-void thread_block (void);
-void thread_unblock (struct thread *);
+void thread_block(void);
+void thread_unblock(struct thread *);
 
-struct thread *thread_current (void);
-tid_t thread_tid (void);
-const char *thread_name (void);
+struct thread *thread_current(void);
+tid_t thread_tid(void);
+const char *thread_name(void);
 
-void thread_exit (void) NO_RETURN;
-void thread_yield (void);
+void thread_exit(void) NO_RETURN;
+void thread_yield(void);
 
-int thread_get_priority (void);
-void thread_set_priority (int);
+int thread_get_priority(void);
+void thread_set_priority(int);
 
-int thread_get_nice (void);
-void thread_set_nice (int);
-int thread_get_recent_cpu (void);
-int thread_get_load_avg (void);
+int thread_get_nice(void);
+void thread_set_nice(int);
+int thread_get_recent_cpu(void);
+int thread_get_load_avg(void);
 
-void do_iret (struct intr_frame *tf);
+void do_iret(struct intr_frame *tf);
 
-/******Newly added function in project 1*******/
-void thread_sleep (int64_t ticks);				/*Turns thread state from THREAD_RUNNING into THREAD_BLOCKED*/
-void thread_wakeup (int64_t ticks);				/*Awakes a thread in sleep_list*/
-void update_next_tick_to_awake (int64_t ticks); 	/*Saves a thread that has a minimum tick*/
-int64_t get_next_tick_to_awake (void); 			/*Returns next_tick_to_awake(global variable in thread.c)*/ 
-/*Project 1 (Priority Scheduling)*/
-bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
-void test_max_priority (void);
-/*############################################*/
-/*############Newly added in Project 2###############*/
-/*---------------Process System Call-----------------*/
-struct thread *find_child_process (tid_t child_tid);
-/*###################################################*/
+// ****************** P1: 추가한 함수 *************************
+void thread_sleep(int64_t ticks);
+void thread_wakeup(int64_t ticks);
+void update_next_tick_to_awake(int64_t ticks);
+int64_t get_next_tick_to_awake(void);
+bool cmp_priority(const struct list_elem *a,
+				  const struct list_elem *b,
+				  void *aux);
+void test_max_priority(void);
+// ****************** P1: 추가한 함수 - 끝 ********************
+
+/*************** P2 sys call: 프로토타입 추가 - 시작 ***************/
+// struct thread *get_child(int pid);
+struct thread *get_child (tid_t child_tid);
+
+/*************** P2 sys call: 프로토타입 추가 - 끝 ***************/
+
 #endif /* threads/thread.h */

@@ -99,13 +99,13 @@ void timer_sleep(int64_t ticks)
 
 	ASSERT(intr_get_level() == INTR_ON);
 
-	// 비지웨이팅; 구현 전 기본 코드 
+	// 비지웨이팅; 구현 전 기본 코드
 	// while (timer_elapsed(start) < ticks)
 	// thread_yield();
 
 	// P1: 피피티 14장
 	// 요기 start value 때문에 문제 있을 수 있음; 지금 start랑 괴리 발생 가능
-	if (timer_elapsed(start) < ticks) // start 이후로 경과된 시간 < 틱
+	// if (timer_elapsed(start) < ticks) // start 이후로 경과된 시간 < 틱
 		thread_sleep(start + ticks);  // implement by yourself
 }
 
@@ -137,19 +137,24 @@ void timer_print_stats(void)
 static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
-	ticks++;
-	thread_tick(); // update the cpu usage for running process
+	// 내 코드 -------------
+	// ticks++;
+	// thread_tick(); // update the cpu usage for running process
 
-	// P1: 깨울 시간이 되면 wakeup 수행
-	if (get_next_tick_to_awake() > ticks)
-		return;
-	thread_wakeup(ticks); 
-	/* code to add:
-	check sleep list and the global tick.
-	find any threads to wake up,
-	move them to the ready list if necessary.
-	update the global tick.
-	*/
+	// // P1: 깨울 시간이 되면 wakeup 수행
+	// if (get_next_tick_to_awake() > ticks)
+	// 	return;
+	// thread_wakeup(ticks);
+	// 내 코드 ------------- 끝
+
+	ticks++;
+	thread_tick();
+	/* check sleep list and the global tick. find any threads to wake up, move them to the ready list if necessary. update the global tick.*/
+	int64_t next_tick = get_next_tick_to_awake();
+	if (ticks >= next_tick)
+	{
+		thread_wakeup(ticks);
+	}
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

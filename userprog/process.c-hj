@@ -107,7 +107,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	}
 
 	/* Wait for child's exit */
-	struct thread *child = find_child_process(tid);
+	struct thread *child = get_child(tid);
 	sema_down(&child->sema_for_fork); /* Wait child */
 
 	/* Child exits with -1, return TID_ERROR*/
@@ -219,13 +219,13 @@ __do_fork(void *aux)
 	/*------------------Process System Call-----------------*/
 	/* Duplicates parent's file and put it into child's (current thread's) fdt*/
 	/* If parent's fdt is something wrong */
-	if (parent->next_fd == FDCOUNT_LIMIT)
+	if (parent->next_fd == OPEN_MAX)
 	{
 		goto error;
 	}
 
 	/* walking parent fdt*/
-	for (int i = 0; i < FDCOUNT_LIMIT; i++)
+	for (int i = 0; i < OPEN_MAX; i++)
 	{
 		struct file *file = parent->fdt[i];
 
@@ -248,10 +248,9 @@ __do_fork(void *aux)
 			copy_file = file;
 		}
 		/* Add file to current thread's fdt */
-		curr->fdt[i] = copy_file;
+		current->fdt[i] = copy_file;
 	}
-
-	curr->next_fd = parent->next_fd;
+	current->next_fd = parent->next_fd;
 	/* After duplicate file, wake parent process up */
 	sema_up(&curr->sema_for_fork);
 
@@ -335,7 +334,7 @@ int process_wait(tid_t child_tid UNUSED)
 	/*-----------------------Process System Call------------------------*/
 	/* Find child process (chlid_tid), if not, return NULL */
 	struct thread *curr = thread_current();
-	struct thread *child = find_child_process(child_tid);
+	struct thread *child = get_child(child_tid);
 	// printf("여기여기여기여기여기%s\n", child->name);
 
 	/* If pid does not refer to a direct child of a calling process */
@@ -372,7 +371,7 @@ void process_exit(void)
 
 	/*------------------------------File System Call--------------------------------*/
 	/* Close all the open file in FDT */
-	for (int i = 0; i < FDCOUNT_LIMIT; i++)
+	for (int i = 0; i < OPEN_MAX; i++)
 	{
 		close(i);
 	}
