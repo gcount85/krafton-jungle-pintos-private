@@ -42,7 +42,7 @@ struct file *
 file_duplicate(struct file *file)
 {
 	struct file *nfile = file_open(inode_reopen(file->inode));
-	printf("여기여기여기-fileduplicate\n");
+	// printf("여기여기여기-fileduplicate\n");
 
 	if (nfile)
 	{

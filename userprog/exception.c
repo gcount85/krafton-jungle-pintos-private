@@ -155,7 +155,7 @@ static void page_fault(struct intr_frame *f)
 		   write ? "writing" : "reading",
 		   user ? "user" : "kernel");
 	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 *****/
-	exit(-99999);
+	exit(-1);
 	/***** P2 syscall: 테스트 조건을 만족하기 위해 호출 - 끝 *****/
 
 	// P2 syscall: TODO; Kill하기 전에 프로세의 lock release & malloc free? ==여기서==?
