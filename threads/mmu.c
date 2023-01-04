@@ -1,3 +1,6 @@
+/* 페이지 테이블을 관리하기 위한 코드 */
+
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
