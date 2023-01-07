@@ -314,7 +314,7 @@ void pml4_clear_page(uint64_t *pml4, void *upage)
 bool pml4_is_dirty(uint64_t *pml4, const void *vpage)
 {
 	uint64_t *pte = pml4e_walk(pml4, (uint64_t)vpage, false);
-	return pte != NULL && (*pte & PTE_D) != 0;
+	return (pte != NULL) && ((*pte & PTE_D) != 0);
 }
 
 /* Set the dirty bit to DIRTY in the PTE for virtual page VPAGE
@@ -341,7 +341,7 @@ void pml4_set_dirty(uint64_t *pml4, const void *vpage, bool dirty)
 bool pml4_is_accessed(uint64_t *pml4, const void *vpage)
 {
 	uint64_t *pte = pml4e_walk(pml4, (uint64_t)vpage, false);
-	return pte != NULL && (*pte & PTE_A) != 0;
+	return (pte != NULL) && ((*pte & PTE_A) != 0);
 }
 
 /* Sets the accessed bit to ACCESSED in the PTE for virtual page
