@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "list.h"
+#include "threads/thread.h"
 
 /* Hash element. */
 struct hash_elem
@@ -35,16 +36,16 @@ struct hash_elem
  * the structure that HASH_ELEM is embedded inside.  Supply the
  * name of the outer structure STRUCT and the member name MEMBER
  * of the hash element.  See the big comment at the top of the
- * file for an example. 
- * 
+ * file for an example.
+ *
  * hash_entry(elem, type, member):
- * type == elem이 속한 struct의 이름 
- * member == 그 type 안의 어떤 멤버인지 
- * 나 h는 struct type 안의 땡땡 member 입니다 → struct type 포인터 반환 
- * ex: hash_entry (h, struct thread, h_elem) → h가 포함 된 struct thread의 주소 
- * 
- * 
- * 
+ * type == elem이 속한 struct의 이름
+ * member == 그 type 안의 어떤 멤버인지
+ * 나 h는 struct type 안의 땡땡 member 입니다 → struct type 포인터 반환
+ * ex: hash_entry (h, struct thread, h_elem) → h가 포함 된 struct thread의 주소
+ *
+ *
+ *
  * */
 #define hash_entry(HASH_ELEM, STRUCT, MEMBER) \
 	((STRUCT *)((uint8_t *)&(HASH_ELEM)->list_elem - offsetof(STRUCT, MEMBER.list_elem)))
@@ -105,10 +106,14 @@ size_t hash_size(struct hash *);
 bool hash_empty(struct hash *);
 
 /* Sample hash functions. */
-// key를 해시로 만들 때 사용하면 되는 함수들. 
+// key를 해시로 만들 때 사용하면 되는 함수들.
 // gitbook: https://casys-kaist.github.io/pintos-kaist/appendix/hash_table.html
 uint64_t hash_bytes(const void *, size_t);
 uint64_t hash_string(const char *);
 uint64_t hash_int(int);
+/************** P3: added **************/
+bool page_less(const struct hash_elem *a_,
+			   const struct hash_elem *b_, void *aux UNUSED);
+/************** P3: added - end **************/
 
 #endif /* lib/kernel/hash.h */

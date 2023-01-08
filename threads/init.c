@@ -29,9 +29,11 @@
 #include "userprog/tss.h"
 #endif
 #include "tests/threads/tests.h"
-#ifdef VM
+
+// #ifdef VM
 #include "vm/vm.h"
-#endif
+// #endif
+
 #ifdef FILESYS
 #include "devices/disk.h"
 #include "filesys/filesys.h"
@@ -111,9 +113,9 @@ int main(void)
 	filesys_init(format_filesys);
 #endif
 
-#ifdef VM
+// #ifdef VM
 	vm_init();
-#endif
+// #endif
 
 	printf("Boot complete.\n");
 

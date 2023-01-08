@@ -50,7 +50,11 @@ struct page
 	void *va;			 /* Address in terms of user space */
 	struct frame *frame; /* Back reference for frame */
 
+	/**************** P3: added ****************/
 	/* Your implementation */
+	struct hash_elem hash_elem; /* Hash table element. */
+
+	/**************** P3: added - end ****************/
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -100,9 +104,6 @@ struct supplemental_page_table
 	// 상응하는 커널 가상 주소를 담은 포인터
 	// active or inactive (present, or not?)
 
-	// buckets; -> entries list의 head를 가리키게 될 예정?
-	int elem_cnt;
-
 	enum vm_type type; /* 가상 메모리 페이지 타입 */
 	void *vaddr;	   /* entry의 가상페이지 번호 */
 	bool writable;	   /* True일 경우 해당 주소에 write 가능
@@ -144,5 +145,11 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
 void vm_dealloc_page(struct page *page);
 bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);
+
+/******************** P3: added ********************/
+unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
+
+/******************** P3: added - end ********************/
+
 
 #endif /* VM_VM_H */

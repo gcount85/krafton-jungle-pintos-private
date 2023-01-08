@@ -25,9 +25,9 @@
 
 /********* P2 syscall: 추가한 헤더 - 끝 *********/
 
-#ifdef VM
+// #ifdef VM
 #include "vm/vm.h"
-#endif
+// #endif
 
 static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
@@ -58,11 +58,11 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
-	/****************** P2 arg passing: 추가한 코드 - 시작 *************************/
+	/****************** P2 arg passing: added - 시작 *************************/
 	// P2 arg passing: filename 파싱하기 (파싱 예시: ls –a → ls)
 	char *save_ptr;
 	file_name = strtok_r(file_name, " ", &save_ptr);
-	/****************** P2 arg passing: 추가한 코드 - 끝 *************************/
+	/****************** P2 arg passing: added - 끝 *************************/
 
 	/* Create a new thread to execute FILE_NAME. */
 	// 인수; 스레드 이름(문자열), 스레드 우선순위,
@@ -77,21 +77,19 @@ tid_t process_create_initd(const char *file_name)
 /* A thread function that launches first user process. */
 static void initd(void *f_name)
 {
-#ifdef VM
+// #ifdef VM
 	supplemental_page_table_init(&thread_current()->spt);
-#endif
+// #endif
 
 	process_init();
 
 	if (process_exec(f_name) < 0)
-		// exit(-1); // 내가 작성
-		// thread_exit(); // 내가 작성
 		PANIC("Fail to launch initd\n");
 
 	NOT_REACHED();
 }
 
-/****************** P2 arg passing: 추가한 코드 - 시작 *************************/
+/****************** P2 arg passing: added - 시작 *************************/
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
@@ -116,7 +114,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 
 	return tid;
 }
-/****************** P2 arg passing: 추가한 코드 - 끝 *************************/
+/****************** P2 arg passing: added - 끝 *************************/
 
 #ifndef VM
 /* Duplicate the parent's address space by passing this function to the
@@ -129,7 +127,7 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 	void *newpage;
 	bool writable;
 
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
+	/********* P2 syscall: added - 시작 *********/
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
 	if (is_kernel_vaddr(va)) // 커널 공간인 경우 바로 복사하도록 반환
 	{
@@ -164,7 +162,7 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
 		return false;
 	}
 
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
+	/********* P2 syscall: added - 끝 *********/
 	return true;
 }
 #endif
@@ -179,14 +177,14 @@ static void __do_fork(void *aux)
 	struct thread *parent = (struct thread *)aux; // 부모
 	struct thread *current = thread_current();	  // 자식
 
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
+	/********* P2 syscall: added - 시작 *********/
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
+	/********* P2 syscall: added - 끝 *********/
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -194,16 +192,16 @@ static void __do_fork(void *aux)
 		goto error;
 
 	process_activate(current);
-#ifdef VM
+// #ifdef VM
 	supplemental_page_table_init(&current->spt);
 	if (!supplemental_page_table_copy(&current->spt, &parent->spt))
 		goto error;
-#else
+// #else
 	if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
 		goto error;
-#endif
+// #endif
 
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
+	/********* P2 syscall: added - 시작 *********/
 	/* TODO: Your code goes here.
 	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
@@ -239,18 +237,18 @@ static void __do_fork(void *aux)
 	sema_up(&current->sema_for_fork); // 위치가 꼭 여기여야 함?
 
 	if_.R.rax = 0;
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
+	/********* P2 syscall: added - 끝 *********/
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 error:
-	/********* P2 syscall: 추가한 코드 - 시작 *********/
-
+	/********* P2 syscall: added - 시작 *********/
 	current->exit_status = TID_ERROR;
 	sema_up(&current->sema_for_fork);
 	exit(TID_ERROR);
-	/********* P2 syscall: 추가한 코드 - 끝 *********/
+
+	/********* P2 syscall: added - 끝 *********/
 }
 
 /* Switch the current execution context to the f_name.
@@ -353,9 +351,9 @@ static void process_cleanup(void)
 {
 	struct thread *curr = thread_current();
 
-#ifdef VM
+// #ifdef VM
 	supplemental_page_table_kill(&curr->spt);
-#endif
+// #endif
 
 	uint64_t *pml4;
 	/* Destroy the current process's page directory and switch back

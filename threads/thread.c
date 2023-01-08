@@ -783,7 +783,6 @@ void thread_wakeup(int64_t ticks)
 }
 
 // P1 priority: 우선순위 비교 (내림차순 정렬을 위한)
-// 우선순위가 같은 경우도 추가함 (return 2)
 bool cmp_priority(const struct list_elem *a,
 				  const struct list_elem *b,
 				  void *aux)

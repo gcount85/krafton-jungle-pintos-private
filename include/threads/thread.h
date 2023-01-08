@@ -11,9 +11,9 @@
 
 /*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
 
-#ifdef VM
+// #ifdef VM
 #include "vm/vm.h"
-#endif
+// #endif
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,15 +105,15 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 
-	/****************** P1: 추가한 필드 *************************/
+	/****************** P1: added ******************/
 	int64_t wakeup_tick;					 // P1 alarm: tick till wake up
 	int origin_priority;					 // P1 donation: 원래의 우선순위 값
 	struct lock *lock_address;				 // P1 donation: 락 주소
 	struct list multiple_donation;			 // P1 donation
 	struct list_elem multiple_donation_elem; // P1 donation
-	/****************** P1: 추가한 필드 *************************/
+	/****************** P1: added - end ******************/
 
-	/****************** P2: 추가한 필드 *************************/
+	/****************** P2: added ******************/
 	// struct thread *parent_process;	// Pointer to parent process
 	struct list child_list;			// Pointers to the children list
 	struct list_elem child_elem;	// Pointers to the children list-elem
@@ -125,19 +125,26 @@ struct thread
 	struct intr_frame parent_if;	// +++ 부모의 tf 값 (fork)
 	struct file *running_f;			// +++ 실행 중인 파일
 	int next_fd;
-	/****************** P2: 추가한 필드 - 끝 *************************/
+	/****************** P2: added - end ******************/
 
+	/****************** P3: added ******************/
+	struct hash spt; // supplemental_page_table
+	/****************** P3: added - end ******************/
+
+	
+	
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
+	
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
 #endif
-#ifdef VM
+// #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
-	struct supplemental_page_table spt;
-#endif
+	// struct supplemental_page_table spt;
+// #endif
 
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
