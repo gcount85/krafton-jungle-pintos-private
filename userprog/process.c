@@ -19,8 +19,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 /********* P2 syscall: 추가한 헤더 - 시작 *********/
-#include "threads/malloc.h" // 이거 내가 추가해봄
-// #include "userprog/syscall.h"
+#include "threads/malloc.h"
 #include "lib/user/syscall.h"
 
 /********* P2 syscall: 추가한 헤더 - 끝 *********/
@@ -77,9 +76,9 @@ tid_t process_create_initd(const char *file_name)
 /* A thread function that launches first user process. */
 static void initd(void *f_name)
 {
-// #ifdef VM
+	// #ifdef VM
 	supplemental_page_table_init(&thread_current()->spt);
-// #endif
+	// #endif
 
 	process_init();
 
@@ -192,14 +191,14 @@ static void __do_fork(void *aux)
 		goto error;
 
 	process_activate(current);
-// #ifdef VM
+	// #ifdef VM
 	supplemental_page_table_init(&current->spt);
 	if (!supplemental_page_table_copy(&current->spt, &parent->spt))
 		goto error;
-// #else
+	// #else
 	if (!pml4_for_each(parent->pml4, duplicate_pte, parent))
 		goto error;
-// #endif
+	// #endif
 
 	/********* P2 syscall: added - 시작 *********/
 	/* TODO: Your code goes here.
@@ -295,7 +294,7 @@ int process_exec(void *f_name)
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
 
-/********* P2 syscall: 수정한 함수 - 시작 *********/
+/********* P2 syscall: modified - 시작 *********/
 int process_wait(tid_t child_tid UNUSED)
 {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
@@ -313,11 +312,9 @@ int process_wait(tid_t child_tid UNUSED)
 	list_remove(&child->child_elem); /*sema_down을 했다는 건 child process가 exit을 했다는 의미*/
 	sema_up(&child->sema_for_free);	 // 다른 세마포어?!
 	return child_exit_status;
-
 }
 
 /* Exit the process. This function is called by thread_exit (). */
-// P2 sys call: TODO
 void process_exit(void)
 {
 	struct thread *cur = thread_current();
@@ -326,8 +323,7 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
-	/********* P2 syscall: wait 관련 코드 추가 - 시작 *********/
-	// 프로세스의 모든 열린 파일 close
+	// 모든 열린 파일 close
 	for (int fd = 0; fd < OPEN_MAX, fd++;)
 	{
 		close(fd);
@@ -337,23 +333,25 @@ void process_exit(void)
 	palloc_free_multiple(cur->fdt, FDT_PAGES);
 	file_close(cur->running_f);
 
-	sema_up(&cur->sema_for_wait); // 블락 되어있던 wait 호출자 프로세스가 깨어남 
-	sema_down(&cur->sema_for_free);
+	/*************** P3: added ***************/
+	supplemental_page_table_kill(&cur->spt);
+	/*************** P3: added - end ***************/
 
-	/********* P2 syscall: wait 관련 코드 추가 - 끝 *********/
+	sema_up(&cur->sema_for_wait); // 블락 되어있던 wait 호출자 프로세스가 깨어남
+	sema_down(&cur->sema_for_free);
 
 	process_cleanup();
 }
-/********* P2 syscall: 수정한 함수 - 끝 *********/
+/********* P2 syscall: modified - 끝 *********/
 
 /* Free the current process's resources. */
 static void process_cleanup(void)
 {
 	struct thread *curr = thread_current();
 
-// #ifdef VM
+	// #ifdef VM
 	supplemental_page_table_kill(&curr->spt);
-// #endif
+	// #endif
 
 	uint64_t *pml4;
 	/* Destroy the current process's page directory and switch back
@@ -482,13 +480,13 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* Open executable file. */
 
-	file = filesys_open(file_name); 
+	file = filesys_open(file_name);
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
-	
+
 	/********* P2 syscall: 파일 권한 코드 추가 - 시작 *********/
 	file_deny_write(file); // 파일의 쓰기 권한 닫음
 	t->running_f = file;   // 실행중인 파일로 올림
@@ -703,14 +701,21 @@ setup_stack(struct intr_frame *if_)
 	uint8_t *kpage;
 	bool success = false;
 
+	// 페이지 할당
 	kpage = palloc_get_page(PAL_USER | PAL_ZERO);
 	if (kpage != NULL)
 	{
+		// 페이지 테이블 세팅
 		success = install_page(((uint8_t *)USER_STACK) - PGSIZE, kpage, true);
 		if (success)
-			if_->rsp = USER_STACK;
+		{
+			if_->rsp = USER_STACK; // 스택 포인터 셋업
+			// 
+		}
 		else
+		{
 			palloc_free_page(kpage);
+		}
 	}
 	return success;
 }
