@@ -2,6 +2,9 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+/************* P3: added headers *************/
+#include "lib/kernel/hash.h"
+/********** P3: added headers - end **********/
 
 enum vm_type
 {
@@ -92,6 +95,32 @@ struct page_operations
  * All designs up to you for this. */
 struct supplemental_page_table
 {
+	// 각각의 페이지들을 위한 추가 데이터들 (code 페이지들, DATA 페이지들, BSS 페이지들)
+	// 데이터의 위치 (frame, disk, swap)
+	// 상응하는 커널 가상 주소를 담은 포인터
+	// active or inactive (present, or not?)
+
+	// buckets; -> entries list의 head를 가리키게 될 예정?
+	int elem_cnt;
+
+	enum vm_type type; /* 가상 메모리 페이지 타입 */
+	void *vaddr;	   /* entry의 가상페이지 번호(인덱스?) */
+	bool writable;	   /* True일 경우 해당 주소에 write 가능
+						False일 경우 해당 주소에 write 불가능 */
+	bool is_loaded;	   /* 물리메모리의 탑재 여부를 알려주는 플래그 */
+	struct file *file; /* 가상주소와 맵핑된 파일 */
+
+	/* Memory Mapped File 에서 다룰 예정 */
+	struct list_elem mmap_elem; /* mmap 리스트 element */
+	size_t offset;				/* 읽어야 할 파일 오프셋 */
+	size_t read_bytes;			/* 가상페이지에 쓰여져 있는 데이터 크기 */
+	size_t zero_bytes;			/* 0으로 채울 남은 페이지의 바이트 */
+
+	/* Swapping 과제에서 다룰 예정 */
+	size_t swap_slot; /* 스왑 슬롯 */
+
+	/* ‘vm_entry들을 위한 자료구조’ 부분에서 다룰 예정 */
+	struct hash_elem elem; /* 해시 테이블 Element */
 };
 
 #include "threads/thread.h"
