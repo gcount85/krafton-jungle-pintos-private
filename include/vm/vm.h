@@ -104,7 +104,7 @@ struct supplemental_page_table
 	int elem_cnt;
 
 	enum vm_type type; /* 가상 메모리 페이지 타입 */
-	void *vaddr;	   /* entry의 가상페이지 번호(인덱스?) */
+	void *vaddr;	   /* entry의 가상페이지 번호 */
 	bool writable;	   /* True일 경우 해당 주소에 write 가능
 						False일 경우 해당 주소에 write 불가능 */
 	bool is_loaded;	   /* 물리메모리의 탑재 여부를 알려주는 플래그 */

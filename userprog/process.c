@@ -483,13 +483,14 @@ load(const char *file_name, struct intr_frame *if_)
 	process_activate(thread_current());
 
 	/* Open executable file. */
-	// file = filesys_open(argv[0]);
-	file = filesys_open(file_name);
+
+	file = filesys_open(file_name); 
 	if (file == NULL)
 	{
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
+	
 	/********* P2 syscall: 파일 권한 코드 추가 - 시작 *********/
 	file_deny_write(file); // 파일의 쓰기 권한 닫음
 	t->running_f = file;   // 실행중인 파일로 올림
