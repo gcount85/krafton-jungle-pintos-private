@@ -75,12 +75,19 @@ spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 	return page;
 }
 
-/* Insert PAGE into spt with validation. */
+/* Insert PAGE into spt with validation.
+This function should checks that 
+the virtual address does not exist in the given supplemental page table. */
 bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
 					 struct page *page UNUSED)
 {
 	int succ = false;
+	
 	/* TODO: Fill this function. */
+	if (!(hash_insert(&spt, &page->hash_elem))) // 삽입 됐으면 NULL, 아니면 page->hash_elem
+	{
+		succ = true;
+	}
 
 	return succ;
 }
@@ -189,9 +196,9 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 {
 	if (!spt)
 	{
-		return; 
+		return;
 	}
-	
+
 	if (!(hash_init(&spt->spt_hash_table, page_hash, page_less, NULL)))
 	{
 		thread_exit();

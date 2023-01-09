@@ -54,8 +54,7 @@ struct page
 	/* Your implementation */
 
 	// 각각의 페이지들을 위한 추가 데이터들 (code 페이지들, DATA 페이지들, BSS 페이지들)
-	// 데이터의 위치 (frame, disk, swap)
-	// 상응하는 커널 가상 주소를 담은 포인터
+	// 데이터의 위치 (frame, disk, swap), 상응하는 커널 가상 주소를 담은 포인터(이건 frame에?)
 	// active or inactive (present, or not?)
 
 	bool writable;	   /* True일 경우 해당 주소에 write 가능
@@ -72,7 +71,7 @@ struct page
 	/* Swapping 과제에서 다룰 예정 */
 	size_t swap_slot; /* 스왑 슬롯 */
 
-	/* ‘vm_entry들을 위한 자료구조’ 부분에서 다룰 예정 */
+	/* ‘vm_entry들을 위한 자료구조’ 참고 */
 	struct hash_elem hash_elem; /* Hash table element. */
 
 	/**************** P3: added - end ****************/
@@ -90,7 +89,6 @@ struct page
 	};
 };
 
-struct hash frame_table;
 
 /* The representation of "frame" */
 struct frame
@@ -102,6 +100,11 @@ struct frame
 
 	/**************** P3: added - end ****************/
 };
+
+/**************** P3: added ****************/
+struct hash frame_table;
+
+/**************** P3: added - end ****************/
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
