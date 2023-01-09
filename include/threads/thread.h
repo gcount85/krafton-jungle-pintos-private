@@ -127,9 +127,6 @@ struct thread
 	int next_fd;
 	/****************** P2: added - end ******************/
 
-	/****************** P3: added ******************/
-	struct hash spt; // supplemental_page_table
-	/****************** P3: added - end ******************/
 
 	
 	
@@ -143,7 +140,7 @@ struct thread
 #endif
 // #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
-	// struct supplemental_page_table spt;
+	struct supplemental_page_table spt;
 // #endif
 
 	/* Owned by thread.c. */
@@ -197,7 +194,7 @@ void test_max_priority(void);
 /****************** P1 priority: 프로토타입 추가 - 끝 *************************/
 
 /*************** P2 sys call: 프로토타입 추가 - 시작 ***************/
-struct thread *get_child (tid_t child_tid); // +++ tid로 자식 검색
+struct thread *get_child (tid_t child_tid); // tid로 자식 검색
 
 /*************** P2 sys call: 프로토타입 추가 - 끝 ***************/
 
