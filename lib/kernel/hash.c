@@ -422,7 +422,8 @@ remove_elem(struct hash *h, struct hash_elem *e)
 }
 
 /************** P3: added **************/
-/* Returns true if page a precedes page b. */
+/* Returns true if page a precedes page b. 
+ * a와 b가 같거나(이럴 수가 있나?), a 주소가 더 크면 false */
 bool page_less(const struct hash_elem *a_,
 			   const struct hash_elem *b_, void *aux UNUSED)
 {
@@ -432,4 +433,15 @@ bool page_less(const struct hash_elem *a_,
 	return (a->va) < (b->va);
 }
 
+/* Returns the page containing the given virtual address, 
+ * or a null pointer if no such page exists. */
+struct page *page_lookup(const void *va, struct supplemental_page_table *spt)
+{
+	struct page p;
+	struct hash_elem *e;
+
+	p.va = va;
+	e = hash_find(&spt->spt_hash_table, &p.hash_elem);
+	return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
+}
 /************** P3: added - end **************/

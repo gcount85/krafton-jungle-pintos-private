@@ -68,7 +68,9 @@ struct page *
 spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 {
 	struct page *page = NULL;
+
 	/* TODO: Fill this function. */
+	page = page_lookup(va, spt);
 
 	return page;
 }
@@ -185,6 +187,11 @@ vm_do_claim_page(struct page *page)
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 {
+	if (!spt)
+	{
+		return; 
+	}
+	
 	if (!(hash_init(&spt->spt_hash_table, page_hash, page_less, NULL)))
 	{
 		thread_exit();
