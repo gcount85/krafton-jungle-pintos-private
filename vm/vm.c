@@ -16,6 +16,11 @@ void vm_init(void)
 	register_inspect_intr();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+
+	/*********************** P3: added ***********************/
+	hash_init(&frame_table, page_hash, page_less, NULL); // frame hash, frame less 만들기
+
+	/*********************** P3: added - end ***********************/
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -76,13 +81,13 @@ spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 }
 
 /* Insert PAGE into spt with validation.
-This function should checks that 
+This function should checks that
 the virtual address does not exist in the given supplemental page table. */
 bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
 					 struct page *page UNUSED)
 {
 	int succ = false;
-	
+
 	/* TODO: Fill this function. */
 	if (!(hash_insert(&spt, &page->hash_elem))) // 삽입 됐으면 NULL, 아니면 page->hash_elem
 	{
@@ -127,7 +132,23 @@ static struct frame *
 vm_get_frame(void)
 {
 	struct frame *frame = NULL;
+
+	/*********************** P3: added ***********************/
 	/* TODO: Fill this function. */
+	frame = (struct frame *)malloc(sizeof(struct frame));
+	frame->kva = palloc_get_page(PAL_USER); 
+	if (!(frame))
+	{
+		PANIC("todo"); // 만약 할당 실패시 임시방편; todo
+	}
+
+	// 구조체 필드 초기화 수정하기; todo
+	hash_insert(&frame_table, &frame->hash_elem);
+	// frame->hash_elem.list_elem.next = NULL;
+	// frame->hash_elem.list_elem.prev = NULL;
+	// frame->kva = NULL;
+	frame->page = NULL;
+	/*********************** P3: added - end ***********************/
 
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
@@ -218,11 +239,42 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 	 * TODO: writeback all the modified contents to the storage. */
 }
 
+/* Returns the page containing the given virtual address, 
+ * or a null pointer if no such page exists. */
+struct page *page_lookup(const void *va, struct supplemental_page_table *spt)
+{
+	struct page p;
+	struct hash_elem *e;
+
+	p.va = va;
+	e = hash_find(&spt->spt_hash_table, &p.hash_elem);
+	return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
+}
+
 /* Returns a hash value for page p. */
 unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED)
 {
 	const struct page *p = hash_entry(p_, struct page, hash_elem);
 	return hash_bytes(&p->va, sizeof p->va);
+}
+
+/* Returns true if page a precedes page b. 
+ * a와 b가 같거나(이럴 수가 있나?), a 주소가 더 크면 false */
+bool page_less(const struct hash_elem *a_,
+			   const struct hash_elem *b_, void *aux UNUSED)
+{
+	const struct page *a = hash_entry(a_, struct page, hash_elem);
+	const struct page *b = hash_entry(b_, struct page, hash_elem);
+
+	return (a->va) < (b->va);
+}
+
+
+/* Returns a hash value for frame f. */
+unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED)
+{
+	const struct frame *f = hash_entry(f_, struct frame, hash_elem);
+	return hash_bytes(&f->kva, sizeof f->kva);
 }
 
 /*********************** P3: added - end ***********************/

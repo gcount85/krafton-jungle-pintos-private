@@ -628,7 +628,7 @@ validate_segment(const struct Phdr *phdr, struct file *file)
 
 #ifndef VM
 /* Codes of this block will be ONLY USED DURING project 2.
- * If you want to implement the function for whole project 2, implement it
+ * If you want to implement the function for whole project, implement it
  * outside of #ifndef macro. */
 
 /* load() helpers. */
@@ -710,7 +710,6 @@ setup_stack(struct intr_frame *if_)
 		if (success)
 		{
 			if_->rsp = USER_STACK; // 스택 포인터 셋업
-			// 
 		}
 		else
 		{
@@ -855,93 +854,4 @@ void stack_arguments(int argc, char **argv, struct intr_frame *if_)
 	if_->rsp -= 8;
 	memset(if_->rsp, 0, sizeof(void *));
 
-	////////
-
-	// // /* ================집단지성 디버깅 코드 - OK =========================== */
-
-	// // int addr[64]; // 이 메모리 공간은 어디서 오는가?
-	// // uintptr_t starting = if_->rsp;
-
-	// for (int i = argc - 1; i >= 0; i--)
-	// {
-	// 	// addr[i] = USER_STACK;
-	// 	if_->rsp -= (strlen(argv[i]) + 1);
-	// 	memcpy(if_->rsp, argv[i], strlen(argv[i]) + 1);
-	// 	argv[i] = (char *)if_->rsp;
-	// }
-
-	// if_->rsp -= (if_->rsp % 8);				 // padding (*주소*를 8로 나누면 됨! int 넣을지 말지 확인 )
-	// memset(if_->rsp, 0, 8 * (if_->rsp % 8)); // end of arg string; 0으로 init
-
-	// // while (if_->rsp % 8 != 0)
-	// // {
-	// // 	if_->rsp--;
-	// // 	*(uint8_t *)if_->rsp = 0;
-	// // }
-
-	// if_->rsp -= 8;			// end of arg string (=== 0으로 초기화 해야 하는지 안하는지 확인)
-	// memset(if_->rsp, 0, 8); // end of arg string; 0으로 init
-
-	// // if_->rsp -= 8;
-	// // memcpy(if_->rsp, starting, 8);
-
-	// // 유저스택의 argv[n] ... argv[0]의 시작 주소를 유저 스택에 추가
-	// for (int i = argc - 1; i >= 0; i--)
-	// {
-	// 	if_->rsp -= 8;
-	// 	// memcpy(if_->rsp, argv[i], 8);
-	// 	*(char **)if_->rsp = argv[i]; // 이게 됐던 코드임 !!!!!!!!!!!!!!!!!!!!!!!!!
-	// 								  // starting -= (strlen(argv[i]) + 1);
-	// }
-
-	// // // push argv set의 시작 주소
-	// // starting = if_->rsp;
-	// // if_->rsp -= 8;
-	// // memcpy(if_->rsp, starting, 8);
-
-	// // // push argc
-	// // if_->rsp -= 8;
-	// // memcpy(if_->rsp, argc, 8);
-
-	// // push return adress (0을 이렇게 넣는게 맞냐.. )
-	// if_->rsp -= 8;
-	// memset(if_->rsp, 0, 8);
-
-	// // push argv set의 시작 주소 & push argc
-	// if_->R.rdi = argc;
-	// if_->R.rsi = (uint64_t)if_->rsp + 8;
-	/* ================ 집단지성 디버깅 코드 - 끝 =========================== */
-
-	/* ================Heruing 코드 - OK =========================== */
-	// char *rsp_origin = if_->rsp;
-	// for (int i = argc - 1; i >= 0; i--)
-	// {
-	// 	int arglen = strlen(argv[i]) + 1; // NULL(+1)
-	// 	if_->rsp -= arglen;
-	// 	memcpy(if_->rsp, argv[i], arglen);
-	// }
-
-	// // 8byte padding
-	// int alignPadding = if_->rsp % 8;
-	// if_->rsp -= alignPadding;
-	// if (alignPadding)
-	// 	memset(if_->rsp, 0, alignPadding);
-
-	// // sentinel pointer argv[argc]
-	// if_->rsp -= sizeof(char *);
-	// memset(if_->rsp, 0, sizeof(char *));
-
-	// for (int j = argc - 1; j >= 0; j--)
-	// {
-	// 	if_->rsp -= sizeof(char *);
-	// 	int arglen = strlen(argv[j]) + 1;
-	// 	rsp_origin -= arglen;
-	// 	memcpy(if_->rsp, &rsp_origin, sizeof(char *));
-	// }
-
-	// // fake "return address" for function return
-	// // for user stack frame structure 형식이 멋져보이려고
-	// if_->rsp -= sizeof(char *);
-	// memset(if_->rsp, 0, sizeof(char *));
-	/* ================Heruing 코드 - 끝 =========================== */
 }

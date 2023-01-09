@@ -89,11 +89,10 @@ struct page
 	};
 };
 
-
 /* The representation of "frame" */
 struct frame
 {
-	void *kva;
+	void *kva; // 물리 주소라고 생각하면 됨 
 	struct page *page;
 	/**************** P3: added ****************/
 	struct hash_elem hash_elem;
@@ -154,9 +153,12 @@ void vm_dealloc_page(struct page *page);
 bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);
 
-/******************** P3: added ********************/
+/******************** P3: added ***********s*********/
+bool page_less(const struct hash_elem *a_,
+			   const struct hash_elem *b_, void *aux UNUSED);
 unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
-
+unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED);
+struct page *page_lookup(const void *va, struct supplemental_page_table *spt);
 /******************** P3: added - end ********************/
 
 #endif /* VM_VM_H */
