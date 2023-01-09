@@ -88,10 +88,11 @@ void hash_destroy(struct hash *h, hash_action_func *destructor)
 	free(h->buckets);
 }
 
-/* Inserts NEW into hash table H and returns a null pointer, if
-   no equal element is already in the table.
+/* Inserts NEW into hash table H and returns a null pointer, 
+   if no equal element is already in the table.
    If an equal element is already in the table, returns it
-   without inserting NEW. */
+   without inserting NEW. 
+   삽입 됐으면 NULL 반환, 이미 존재하면 삽입 없이 NEW hash_elem 그대로 반환 */
 struct hash_elem *
 hash_insert(struct hash *h, struct hash_elem *new)
 {
