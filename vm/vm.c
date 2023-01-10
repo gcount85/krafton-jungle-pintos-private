@@ -3,6 +3,9 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+/****************** P3: added ******************/
+#include "userprog/process.h"
+/****************** P3: added ******************/
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -18,7 +21,7 @@ void vm_init(void)
 	/* TODO: Your code goes here. */
 
 	/*********************** P3: added ***********************/
-	hash_init(&frame_table, page_hash, page_less, NULL); // frame hash, frame less 만들기
+	hash_init(&frame_table, frame_hash, frame_less, NULL); // frame hash, frame less 만들기
 
 	/*********************** P3: added - end ***********************/
 }
@@ -135,19 +138,29 @@ vm_get_frame(void)
 
 	/*********************** P3: added ***********************/
 	/* TODO: Fill this function. */
-	frame = (struct frame *)malloc(sizeof(struct frame));
-	frame->kva = palloc_get_page(PAL_USER); 
+	/* frame 할당 */
+	frame = (struct frame *)calloc(1, sizeof(struct frame));
 	if (!(frame))
+	{
+		PANIC("todo; vm_get_frame에서 frame 널이다"); // 만약 할당 실패시 임시방편; todo
+	}
+
+	/* frame 구조체 필드 초기화 */
+	frame->kva = palloc_get_page(PAL_USER);
+	if (!(frame->kva))
 	{
 		PANIC("todo"); // 만약 할당 실패시 임시방편; todo
 	}
 
-	// 구조체 필드 초기화 수정하기; todo
-	hash_insert(&frame_table, &frame->hash_elem);
-	// frame->hash_elem.list_elem.next = NULL;
-	// frame->hash_elem.list_elem.prev = NULL;
-	// frame->kva = NULL;
+	/* frame 구조체 중 hash_elem 초기화를 위한 hash_insert 호출 */
+	if (hash_insert(&frame_table, &frame->hash_elem))
+	{
+		PANIC("todo"); // 이미 frame_table에 존재하여 삽입 실패시 임시방편; todo
+	}
+
 	frame->page = NULL;
+	// frame->hash_elem.list_ele-m.next = NULL;
+	// frame->hash_elem.list_elem.prev = NULL;
 	/*********************** P3: added - end ***********************/
 
 	ASSERT(frame != NULL);
@@ -187,11 +200,24 @@ void vm_dealloc_page(struct page *page)
 	free(page);
 }
 
-/* Claim the page that allocate on VA. */
+/* Claim the page that allocate on VA.
+ * VA에 할당된 page를 클레임하기 */
 bool vm_claim_page(void *va UNUSED)
 {
 	struct page *page = NULL;
+
+	/*********************** P3: added ***********************/
 	/* TODO: Fill this function */
+	// page get하기 == 초기화?
+	page = (struct page *)calloc(1, sizeof(struct page));
+	if (!page)
+	{
+		return false;
+	}
+	page->frame = NULL;
+	page->va = va;
+	page->writable = 0; // 확인필요; 이렇게 초기화 맞는지?
+	/*********************** P3: added - end ***********************/
 
 	return vm_do_claim_page(page);
 }
@@ -205,10 +231,18 @@ vm_do_claim_page(struct page *page)
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-
+	
+	/*********************** P3: added ***********************/
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-
-	return swap_in(page, frame->kva);
+	if ((install_page(&page->va, &frame->kva, page->writable)))
+	{
+		return swap_in(page, frame->kva);
+	}
+	else
+	{
+		return false;
+	}
+	/*********************** P3: added - end ***********************/
 }
 
 /*********************** P3: added ***********************/
@@ -239,7 +273,7 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 	 * TODO: writeback all the modified contents to the storage. */
 }
 
-/* Returns the page containing the given virtual address, 
+/* Returns the page containing the given virtual address,
  * or a null pointer if no such page exists. */
 struct page *page_lookup(const void *va, struct supplemental_page_table *spt)
 {
@@ -258,7 +292,7 @@ unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED)
 	return hash_bytes(&p->va, sizeof p->va);
 }
 
-/* Returns true if page a precedes page b. 
+/* Returns true if page a precedes page b.
  * a와 b가 같거나(이럴 수가 있나?), a 주소가 더 크면 false */
 bool page_less(const struct hash_elem *a_,
 			   const struct hash_elem *b_, void *aux UNUSED)
@@ -269,7 +303,6 @@ bool page_less(const struct hash_elem *a_,
 	return (a->va) < (b->va);
 }
 
-
 /* Returns a hash value for frame f. */
 unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED)
 {
@@ -277,4 +310,14 @@ unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED)
 	return hash_bytes(&f->kva, sizeof f->kva);
 }
 
+/* Returns true if frame a precedes frame b.
+ * a와 b가 같거나(이럴 수가 있나?), a 주소가 더 크면 false */
+bool frame_less(const struct hash_elem *a_,
+				const struct hash_elem *b_, void *aux UNUSED)
+{
+	const struct frame *a = hash_entry(a_, struct frame, hash_elem);
+	const struct frame *b = hash_entry(b_, struct frame, hash_elem);
+
+	return (a->kva) < (b->kva);
+}
 /*********************** P3: added - end ***********************/
