@@ -47,9 +47,13 @@ static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
-/* Create the pending page object with initializer. If you want to create a
- * page, do not create it directly and make it through this function or
- * `vm_alloc_page`. */
+/* Create the pending page object with initializer. 
+ * If you want to create a *page, 
+ * do not create it directly and make it through this function or
+ * `vm_alloc_page`. 
+ * 넘겨받은 `VM_TYPE`에 따른 적절한 이니셜라이저를 갖고 오고. 
+ * `uninit_new`를 그것과 함께 호출해라!!
+ * */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
@@ -61,11 +65,17 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
+		struct page *new_page = (struct page *)calloc(1, sizeof(struct page));
+		
+		swap_in(new_page, upage);
+		new_page->writable = writable;
+
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
 
 		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, new_page);
 	}
 err:
 	return false;
@@ -138,19 +148,34 @@ vm_get_frame(void)
 
 	/*********************** P3: added ***********************/
 	/* TODO: Fill this function. */
+<<<<<<< HEAD
 	frame = (struct frame *)malloc(sizeof(struct frame));
 	frame->kva = palloc_get_page(PAL_USER);
+=======
+	/* frame 할당 */
+	frame = (struct frame *)calloc(1, sizeof(struct frame));
+>>>>>>> b87a50f6fb39ef957f41453a28cd756630486bc0
 	if (!(frame))
+	{
+		PANIC("todo; vm_get_frame에서 frame 널이다"); // 만약 할당 실패시 임시방편; todo
+	}
+
+	/* frame 구조체 필드 초기화 */
+	frame->kva = palloc_get_page(PAL_USER);
+	if (!(frame->kva))
 	{
 		PANIC("todo"); // 만약 할당 실패시 임시방편; todo
 	}
 
-	// 구조체 필드 초기화 수정하기; todo
-	hash_insert(&frame_table, &frame->hash_elem);
-	// frame->hash_elem.list_elem.next = NULL;
-	// frame->hash_elem.list_elem.prev = NULL;
-	// frame->kva = NULL;
+	/* frame 구조체 중 hash_elem 초기화를 위한 hash_insert 호출 */
+	if (hash_insert(&frame_table, &frame->hash_elem))
+	{
+		PANIC("todo"); // 이미 frame_table에 존재하여 삽입 실패시 임시방편; todo
+	}
+
 	frame->page = NULL;
+	// frame->hash_elem.list_ele-m.next = NULL;
+	// frame->hash_elem.list_elem.prev = NULL;
 	/*********************** P3: added - end ***********************/
 
 	ASSERT(frame != NULL);
@@ -190,16 +215,31 @@ void vm_dealloc_page(struct page *page)
 	free(page);
 }
 
-/* Claim the page that allocate on VA. */
+/* Claim the page that allocate on VA.
+ * VA에 할당된 page를 클레임하기 */
 bool vm_claim_page(void *va UNUSED)
 {
 	struct page *page = NULL;
 
+<<<<<<< HEAD
 	/* TODO: Fill this function */
 	// page get하기 == 초기화?
 	page = (struct page *)malloc(sizeof(struct page));
 	page->frame = NULL;
 	// 초기화 필드를 더 해야하는지 모르겠다!!!!!!
+=======
+	/*********************** P3: added ***********************/
+	/* TODO: Fill this function */
+	// page get하기 == 초기화?
+	page = (struct page *)calloc(1, sizeof(struct page));
+	if (!page)
+	{
+		return false;
+	}
+	page->frame = NULL;
+	page->va = va;
+	/*********************** P3: added - end ***********************/
+>>>>>>> b87a50f6fb39ef957f41453a28cd756630486bc0
 
 	return vm_do_claim_page(page);
 }
@@ -213,6 +253,7 @@ vm_do_claim_page(struct page *page)
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
+<<<<<<< HEAD
 
 	/*********************** P3: added ***********************/
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
@@ -220,6 +261,20 @@ vm_do_claim_page(struct page *page)
 	/*********************** P3: added - end ***********************/
 
 	return swap_in(page, frame->kva);
+=======
+	
+	/*********************** P3: added ***********************/
+	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	if ((install_page(&page->va, &frame->kva, page->writable)))
+	{
+		return swap_in(page, frame->kva);
+	}
+	else
+	{
+		return false;
+	}
+	/*********************** P3: added - end ***********************/
+>>>>>>> b87a50f6fb39ef957f41453a28cd756630486bc0
 }
 
 /*********************** P3: added ***********************/

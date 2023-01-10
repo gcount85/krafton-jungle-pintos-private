@@ -11,7 +11,7 @@ typedef bool vm_initializer(struct page *, void *aux);
  * "Lazy loading". */
 struct uninit_page
 {
-	/* Initiate the contets of the page */
+	/* Initiate the contents of the page */
 	vm_initializer *init;
 	enum vm_type type;
 	void *aux;
