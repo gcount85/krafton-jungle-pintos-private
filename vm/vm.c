@@ -3,6 +3,9 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+/****************** P3: added ******************/
+#include "userprog/process.h"
+/****************** P3: added ******************/
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -18,7 +21,7 @@ void vm_init(void)
 	/* TODO: Your code goes here. */
 
 	/*********************** P3: added ***********************/
-	hash_init(&frame_table, page_hash, page_less, NULL); // frame hash, frame less 만들기
+	hash_init(&frame_table, frame_hash, frame_less, NULL); // frame hash, frame less 만들기
 
 	/*********************** P3: added - end ***********************/
 }
@@ -136,7 +139,7 @@ vm_get_frame(void)
 	/*********************** P3: added ***********************/
 	/* TODO: Fill this function. */
 	frame = (struct frame *)malloc(sizeof(struct frame));
-	frame->kva = palloc_get_page(PAL_USER); 
+	frame->kva = palloc_get_page(PAL_USER);
 	if (!(frame))
 	{
 		PANIC("todo"); // 만약 할당 실패시 임시방편; todo
@@ -191,7 +194,12 @@ void vm_dealloc_page(struct page *page)
 bool vm_claim_page(void *va UNUSED)
 {
 	struct page *page = NULL;
+
 	/* TODO: Fill this function */
+	// page get하기 == 초기화?
+	page = (struct page *)malloc(sizeof(struct page));
+	page->frame = NULL;
+	// 초기화 필드를 더 해야하는지 모르겠다!!!!!!
 
 	return vm_do_claim_page(page);
 }
@@ -206,7 +214,10 @@ vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 
+	/*********************** P3: added ***********************/
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	install_page(&page->va, &frame->kva, page->writable);
+	/*********************** P3: added - end ***********************/
 
 	return swap_in(page, frame->kva);
 }
@@ -239,7 +250,7 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 	 * TODO: writeback all the modified contents to the storage. */
 }
 
-/* Returns the page containing the given virtual address, 
+/* Returns the page containing the given virtual address,
  * or a null pointer if no such page exists. */
 struct page *page_lookup(const void *va, struct supplemental_page_table *spt)
 {
@@ -258,7 +269,7 @@ unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED)
 	return hash_bytes(&p->va, sizeof p->va);
 }
 
-/* Returns true if page a precedes page b. 
+/* Returns true if page a precedes page b.
  * a와 b가 같거나(이럴 수가 있나?), a 주소가 더 크면 false */
 bool page_less(const struct hash_elem *a_,
 			   const struct hash_elem *b_, void *aux UNUSED)
@@ -269,7 +280,6 @@ bool page_less(const struct hash_elem *a_,
 	return (a->va) < (b->va);
 }
 
-
 /* Returns a hash value for frame f. */
 unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED)
 {
@@ -277,4 +287,14 @@ unsigned frame_hash(const struct hash_elem *f_, void *aux UNUSED)
 	return hash_bytes(&f->kva, sizeof f->kva);
 }
 
+/* Returns true if frame a precedes frame b.
+ * a와 b가 같거나(이럴 수가 있나?), a 주소가 더 크면 false */
+bool frame_less(const struct hash_elem *a_,
+				const struct hash_elem *b_, void *aux UNUSED)
+{
+	const struct frame *a = hash_entry(a_, struct frame, hash_elem);
+	const struct frame *b = hash_entry(b_, struct frame, hash_elem);
+
+	return (a->kva) < (b->kva);
+}
 /*********************** P3: added - end ***********************/

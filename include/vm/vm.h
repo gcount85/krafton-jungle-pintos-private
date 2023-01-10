@@ -92,7 +92,7 @@ struct page
 /* The representation of "frame" */
 struct frame
 {
-	void *kva; // 물리 주소라고 생각하면 됨 
+	void *kva; // ≒ 물리 주소
 	struct page *page;
 	/**************** P3: added ****************/
 	struct hash_elem hash_elem;
