@@ -47,9 +47,13 @@ static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
-/* Create the pending page object with initializer. If you want to create a
- * page, do not create it directly and make it through this function or
- * `vm_alloc_page`. */
+/* Create the pending page object with initializer. 
+ * If you want to create a *page, 
+ * do not create it directly and make it through this function or
+ * `vm_alloc_page`. 
+ * 넘겨받은 `VM_TYPE`에 따른 적절한 이니셜라이저를 갖고 오고. 
+ * `uninit_new`를 그것과 함께 호출해라!!
+ * */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
@@ -61,11 +65,17 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
+		struct page *new_page = (struct page *)calloc(1, sizeof(struct page));
+		
+		swap_in(new_page, upage);
+		new_page->writable = writable;
+
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
 
 		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, new_page);
 	}
 err:
 	return false;
@@ -216,7 +226,6 @@ bool vm_claim_page(void *va UNUSED)
 	}
 	page->frame = NULL;
 	page->va = va;
-	page->writable = 0; // 확인필요; 이렇게 초기화 맞는지?
 	/*********************** P3: added - end ***********************/
 
 	return vm_do_claim_page(page);
