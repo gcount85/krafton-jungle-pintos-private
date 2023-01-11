@@ -9,7 +9,8 @@ static bool anon_swap_in (struct page *page, void *kva);
 static bool anon_swap_out (struct page *page);
 static void anon_destroy (struct page *page);
 
-/* DO NOT MODIFY this struct */
+/* DO NOT MODIFY this struct 
+ * anon page의 페이지 연산 구조체 */
 static const struct page_operations anon_ops = {
 	.swap_in = anon_swap_in,
 	.swap_out = anon_swap_out,
