@@ -14,7 +14,8 @@
 static bool uninit_initialize(struct page *page, void *kva);
 static void uninit_destroy(struct page *page);
 
-/* DO NOT MODIFY this struct */
+/* DO NOT MODIFY this struct
+ * uninit page의 페이지 연산 구조체 */
 static const struct page_operations uninit_ops = {
 	.swap_in = uninit_initialize,
 	.swap_out = NULL,
@@ -22,7 +23,8 @@ static const struct page_operations uninit_ops = {
 	.type = VM_UNINIT,
 };
 
-/* DO NOT MODIFY this function */
+/* DO NOT MODIFY this function
+ * uninit page 구조체 필드를 초기화하는 함수 */
 void uninit_new(struct page *page, void *va, vm_initializer *init,
 				enum vm_type type, void *aux,
 				bool (*initializer)(struct page *, enum vm_type, void *))
@@ -41,7 +43,8 @@ void uninit_new(struct page *page, void *va, vm_initializer *init,
 		}};
 }
 
-/* Initalize the page on first fault */
+/* Initalize the page on first fault
+ * uninit page를 anon, file, page_cache 중 하나로 바꿈! */
 static bool
 uninit_initialize(struct page *page, void *kva)
 {

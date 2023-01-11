@@ -47,41 +47,53 @@ static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
-/* Create the pending page object with initializer. 
- * If you want to create a *page, 
+/* Create the pending page object with initializer.
+ * If you want to create a *page,
  * do not create it directly and make it through this function or
- * `vm_alloc_page`. 
- * 넘겨받은 `VM_TYPE`에 따른 적절한 이니셜라이저를 갖고 오고. 
+ * `vm_alloc_page`.
+ * 넘겨받은 `VM_TYPE`에 따른 적절한 이니셜라이저를 갖고 오고.
  * `uninit_new`를 그것과 함께 호출해라!!
  * */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
 
-	ASSERT(VM_TYPE(type) != VM_UNINIT)
+	ASSERT(VM_TYPE(type) != VM_UNINIT);
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
 
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
-		struct page *new_page;
-		new_page = (struct page *)calloc(1, sizeof(struct page));
-		swap_in(new_page, upage);
+		/* TODO: Create the page,
+		 * fetch the initialier according to the VM type,
+		 * TODO: and then create "uninit" page struct by calling uninit_new.
+		 * You should modify the field after calling the uninit_new. */
+		struct page *new_page = (struct page *)calloc(1, sizeof(struct page));
 
-		uninit_new(new_page, upage, init, type, aux, (new_page, type, NULL));
-		struct uninit_page *new_uinit_page;
-		new_uinit_page = (struct uninit_page *)calloc(1, sizeof(struct uninit_page));
-		new_page->uninit = *new_uinit_page;
+		switch (type)
+		{s
+		case VM_ANON: /* Halt the operating system. */
+			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+			break;
+		case VM_FILE: /* Terminate this process. */
+			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+			break;
+		default:
+			goto err;
+		}
+
+		// new_page 구조체의 기타 필드 초기화 (위치 확인)
 		new_page->writable = writable;
-
-		/* TODO: Create the page, fetch the initialier according to the VM type,
-		 * TODO: and then create "uninit" page struct by calling uninit_new. You
-		 * TODO: should modify the field after calling the uninit_new. */
+		new_page->is_loaded = 0;
 
 		/* TODO: Insert the page into the spt. */
-		spt_insert_page(spt, new_page);
+		if (!spt_insert_page(spt, new_page)) // 이때 hash_elem이 초기화 됨
+		{
+			goto err;
+		}
 	}
+
 err:
 	return false;
 }
@@ -245,7 +257,7 @@ vm_do_claim_page(struct page *page)
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-	
+
 	/*********************** P3: added ***********************/
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	if ((install_page(&page->va, &frame->kva, page->writable)))
