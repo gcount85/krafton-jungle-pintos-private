@@ -65,9 +65,14 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
-		struct page *new_page = (struct page *)calloc(1, sizeof(struct page));
-		
+		struct page *new_page;
+		new_page = (struct page *)calloc(1, sizeof(struct page));
 		swap_in(new_page, upage);
+
+		uninit_new(new_page, upage, init, type, aux, (new_page, type, NULL));
+		struct uninit_page *new_uinit_page;
+		new_uinit_page = (struct uninit_page *)calloc(1, sizeof(struct uninit_page));
+		new_page->uninit = *new_uinit_page;
 		new_page->writable = writable;
 
 		/* TODO: Create the page, fetch the initialier according to the VM type,
@@ -148,13 +153,8 @@ vm_get_frame(void)
 
 	/*********************** P3: added ***********************/
 	/* TODO: Fill this function. */
-<<<<<<< HEAD
-	frame = (struct frame *)malloc(sizeof(struct frame));
-	frame->kva = palloc_get_page(PAL_USER);
-=======
 	/* frame 할당 */
 	frame = (struct frame *)calloc(1, sizeof(struct frame));
->>>>>>> b87a50f6fb39ef957f41453a28cd756630486bc0
 	if (!(frame))
 	{
 		PANIC("todo; vm_get_frame에서 frame 널이다"); // 만약 할당 실패시 임시방편; todo
@@ -221,13 +221,6 @@ bool vm_claim_page(void *va UNUSED)
 {
 	struct page *page = NULL;
 
-<<<<<<< HEAD
-	/* TODO: Fill this function */
-	// page get하기 == 초기화?
-	page = (struct page *)malloc(sizeof(struct page));
-	page->frame = NULL;
-	// 초기화 필드를 더 해야하는지 모르겠다!!!!!!
-=======
 	/*********************** P3: added ***********************/
 	/* TODO: Fill this function */
 	// page get하기 == 초기화?
@@ -239,7 +232,6 @@ bool vm_claim_page(void *va UNUSED)
 	page->frame = NULL;
 	page->va = va;
 	/*********************** P3: added - end ***********************/
->>>>>>> b87a50f6fb39ef957f41453a28cd756630486bc0
 
 	return vm_do_claim_page(page);
 }
@@ -253,15 +245,6 @@ vm_do_claim_page(struct page *page)
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-<<<<<<< HEAD
-
-	/*********************** P3: added ***********************/
-	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	install_page(&page->va, &frame->kva, page->writable);
-	/*********************** P3: added - end ***********************/
-
-	return swap_in(page, frame->kva);
-=======
 	
 	/*********************** P3: added ***********************/
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
@@ -274,7 +257,6 @@ vm_do_claim_page(struct page *page)
 		return false;
 	}
 	/*********************** P3: added - end ***********************/
->>>>>>> b87a50f6fb39ef957f41453a28cd756630486bc0
 }
 
 /*********************** P3: added ***********************/
