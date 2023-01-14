@@ -26,6 +26,16 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 	page->operations = &file_ops;
 
 	struct file_page *file_page = &page->file;
+
+	if (!file_page)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+	/******************* P3: added - end *******************/
 }
 
 /* Swap in the page by read contents from the file. */
@@ -47,7 +57,7 @@ static void
 file_backed_destroy(struct page *page)
 {
 	struct file_page *file_page UNUSED = &page->file;
-	vm_dealloc_page(page); // +++ 
+	vm_dealloc_page(page); // +++
 }
 
 /* Do the mmap */

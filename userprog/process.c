@@ -764,12 +764,64 @@ bool install_page(void *upage, void *kpage, bool writable)
 	return (pml4_get_page(t->pml4, upage) == NULL && pml4_set_page(t->pml4, upage, kpage, writable));
 }
 
+/* 페이지 폴트가 났을 때 호출됨.
+ * aux로 전달받은 file_info를 통해, 
+ * 세그먼트를 읽어낼 파일을 찾고 + 세그먼트를 메모리로 올려야 함.  */
 static bool
-lazy_load_segment(struct page *page, void *aux)
+lazy_load_segment(struct page *page, struct file_info *file_info)
 {
+
+	/******************* P3: added *******************/
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+
+	// static bool
+	// load_segment(struct file *file, off_t ofs, uint8_t *upage,
+	// 			 uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+	// {
+	// 	ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
+	// 	ASSERT(pg_ofs(upage) == 0);
+	// 	ASSERT(ofs % PGSIZE == 0);
+
+	// 	file_seek(file, ofs);
+	// 	while (read_bytes > 0 || zero_bytes > 0)
+	// 	{
+	// 		/* Do calculate how to fill this page.
+	// 		 * We will read PAGE_READ_BYTES bytes from FILE
+	// 		 * and zero the final PAGE_ZERO_BYTES bytes. */
+	// 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+	// 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+	// 		/* Get a page of memory. */
+	// 		uint8_t *kpage = palloc_get_page(PAL_USER);
+	// 		if (kpage == NULL)
+	// 			return false;
+
+	// 		/* Load this page. */
+	// 		if (file_read(file, kpage, page_read_bytes) != (int)page_read_bytes)
+	// 		{
+	// 			palloc_free_page(kpage);
+	// 			return false;
+	// 		}
+	// 		memset(kpage + page_read_bytes, 0, page_zero_bytes);
+
+	// 		/* Add the page to the process's address space. */
+	// 		if (!install_page(upage, kpage, writable))
+	// 		{
+	// 			printf("fail\n");
+	// 			palloc_free_page(kpage);
+	// 			return false;
+	// 		}
+
+	// 		/* Advance. */
+	// 		read_bytes -= page_read_bytes;
+	// 		zero_bytes -= page_zero_bytes;
+	// 		upage += PGSIZE;
+	// 	}
+	// 	return true;
+	// }
+	/******************* P3: added - end *******************/
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -803,6 +855,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+		/******************* P3: added *******************/
 		/* TODO: Set up aux to pass information to the lazy_load_segment.
 		 * 페이지의 file, load_status, read_byts, zero_bytes, offset 필드 값? */
 		struct file_info *file_info = (struct file_info *)calloc(1, sizeof(struct file_info));
@@ -810,6 +863,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		file_info->file_offset = ofs;
 		file_info->page_read_bytes = page_read_bytes;
 		file_info->page_zero_bytes = page_zero_bytes;
+		/******************* P3: added - end *******************/
 
 		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
 											writable, lazy_load_segment, file_info))

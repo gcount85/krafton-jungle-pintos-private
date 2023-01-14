@@ -65,6 +65,8 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
+
+		/******************* P3: added *******************/
 		/* TODO: Create the page,
 		 * fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new.
@@ -94,6 +96,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		}
 
 		return true;
+		/******************* P3: added - end *******************/
 	}
 
 err:
@@ -218,7 +221,6 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Validate the fault */
 
 	/* TODO: Your code goes here */
-	
 
 	return vm_do_claim_page(page);
 }

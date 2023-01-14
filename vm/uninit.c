@@ -54,9 +54,13 @@ uninit_initialize(struct page *page, void *kva)
 	vm_initializer *init = uninit->init;
 	void *aux = uninit->aux;
 
-	/* TODO: You may need to fix this function. */
+	/******************* P3: modified *******************/
+	/* TODO: You may need to fix this function.
+	 * type에 맞게 이니셜라이저 실행(file_backed_initializer, anon_initializer)
+	 * + init(=lazy_load_segment) 호출 */
 	return uninit->page_initializer(page, uninit->type, kva) &&
-		   (init ? init(page, aux) : true);
+		   (init ? init(page, aux) : false);
+	/******************* P3: modified - end *******************/
 }
 
 /* Free the resources hold by uninit_page. Although most of pages are transmuted
