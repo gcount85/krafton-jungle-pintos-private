@@ -565,13 +565,14 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	// **************** P2 arg passing: args passing *************************** //
-	/* TODO : Implement argument passing(see project2 / argument_passing.html). */
-	// argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
-	// count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소
+	/**************** P2 arg passing: args passing ****************/
+	/* TODO : Implement argument passing(see project2 / argument_passing.html).
+	 * argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간
+	 * count: 인자의 개수
+	 * rsp: 스택 포인터를 가리키는 주소 */
 	stack_arguments(argc, argv, if_);
-	// hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true); // loader_phys_base랑 user_stack 차이?
-	// **************** P2 arg passing: args passing - 끝 ********************** //
+	// hex_dump((uintptr_t)if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
+	/**************** P2 arg passing: args passing - end ****************/
 
 	success = true;
 
@@ -797,15 +798,21 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	{
 		/* Do calculate how to fill this page.
 		 * We will read PAGE_READ_BYTES bytes from FILE
-		 * and zero the final PAGE_ZERO_BYTES bytes. 
+		 * and zero the final PAGE_ZERO_BYTES bytes.
 		 * 페이지 크기보다 read_byte가 작다면 나머지를 0으로 채워야 하기 때문 */
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
+		/* TODO: Set up aux to pass information to the lazy_load_segment.
+		 * 페이지의 file, load_status, read_byts, zero_bytes, offset 필드 값? */
+		struct file_info *file_info = (struct file_info *)calloc(1, sizeof(struct file_info));
+		file_info->file = file;
+		file_info->file_offset = ofs;
+		file_info->page_read_bytes = page_read_bytes;
+		file_info->page_zero_bytes = page_zero_bytes;
+
 		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
-											writable, lazy_load_segment, aux))
+											writable, lazy_load_segment, file_info))
 			return false;
 
 		/* Advance. */
@@ -879,5 +886,3 @@ void stack_arguments(int argc, char **argv, struct intr_frame *if_)
 	memset(if_->rsp, 0, sizeof(void *));
 }
 /****************** P2: added - end ******************/
-
-

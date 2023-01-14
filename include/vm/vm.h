@@ -40,6 +40,16 @@ struct thread;
 
 #define VM_TYPE(type) ((type)&7)
 
+/**************** P3: added ****************/
+struct file_info
+{
+	struct file *file;		/* page의 가상주소와 맵핑된 파일 */
+	size_t page_read_bytes; /* 가상페이지에 쓰여져 있는 데이터 크기 */
+	size_t page_zero_bytes; /* 0으로 채울 남은 페이지의 바이트 */
+	size_t file_offset;		/* 읽어야 할 파일 오프셋 */
+};
+/**************** P3: added - end ****************/
+
 /* The representation of "page".
  * This is kind of "parent class", which has four "child class"es, which are
  * uninit_page, file_page, anon_page, and page cache (project4).
@@ -57,16 +67,14 @@ struct page
 	// 데이터의 위치 (frame, disk, swap), 상응하는 커널 가상 주소를 담은 포인터(이건 frame에?)
 	// active or inactive (present, or not?)
 
-	bool writable;	   /* True일 경우 해당 주소에 write 가능
-						False일 경우 해당 주소에 write 불가능 */
-	bool is_loaded;	   /* 물리메모리의 탑재 여부를 알려주는 플래그 */
-	struct file *file; /* 가상주소와 맵핑된 파일 */
+	bool writable;	/* True일 경우 해당 주소에 write 가능
+					 False일 경우 해당 주소에 write 불가능 */
+	bool is_loaded; /* 물리메모리의 탑재 여부를 알려주는 플래그 */
+
+	struct file_info *file_info; /* file과 관련된 정보 */
 
 	/* Memory Mapped File 에서 다룰 예정 */
 	struct list_elem mmap_elem; /* mmap 리스트 element */
-	size_t offset;				/* 읽어야 할 파일 오프셋 */
-	size_t read_bytes;			/* 가상페이지에 쓰여져 있는 데이터 크기 */
-	size_t zero_bytes;			/* 0으로 채울 남은 페이지의 바이트 */
 
 	/* Swapping 과제에서 다룰 예정 */
 	size_t swap_slot; /* 스왑 슬롯 */
@@ -147,8 +155,8 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user,
 
 #define vm_alloc_page(type, upage, writable) \
 	vm_alloc_page_with_initializer((type), (upage), (writable), NULL, NULL)
-bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
-									bool writable, vm_initializer *init, void *aux);
+bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
+									vm_initializer *init, struct file_info *file_info);
 void vm_dealloc_page(struct page *page);
 bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);

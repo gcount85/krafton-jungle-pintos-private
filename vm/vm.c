@@ -55,7 +55,7 @@ static struct frame *vm_evict_frame(void);
  * `uninit_new`를 그것과 함께 호출해라!!
  * */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
-									vm_initializer *init, void *aux)
+									vm_initializer *init, struct file_info *file_info)
 {
 
 	ASSERT(VM_TYPE(type) != VM_UNINIT);
@@ -74,10 +74,10 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		switch (type)
 		{
 		case VM_ANON:
-			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+			uninit_new(new_page, upage, init, type, file_info, anon_initializer);
 			break;
 		case VM_FILE:
-			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+			uninit_new(new_page, upage, init, type, file_info, file_backed_initializer);
 			break;
 		default:
 			goto err;
