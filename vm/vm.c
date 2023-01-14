@@ -216,7 +216,9 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
+
 	/* TODO: Your code goes here */
+	
 
 	return vm_do_claim_page(page);
 }
