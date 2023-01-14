@@ -174,6 +174,7 @@ static struct frame* vm_get_frame(void)
     frame->kva = palloc_get_page(PAL_USER);
     if (!(frame->kva))
     {
+        palloc_free_page(frame->kva);
         PANIC("todo"); // 만약 할당 실패시 임시방편; todo
     }
 
@@ -224,14 +225,13 @@ void vm_dealloc_page(struct page* page)
 }
 
 /* Claim the page that allocate on VA.
- * VA에 할당된 page를 클레임하기 */
+ * VA에 할당할 page 구조체 만들기 + va, frame 필드 초기화 */
 bool vm_claim_page(void* va UNUSED)
 {
     struct page* page = NULL;
 
     /*********************** P3: added ***********************/
     /* TODO: Fill this function */
-    // page get하기 == 초기화?
     page = (struct page*)calloc(1, sizeof(struct page));
     if (!page)
     {
@@ -244,7 +244,8 @@ bool vm_claim_page(void* va UNUSED)
     return vm_do_claim_page(page);
 }
 
-/* Claim the PAGE and set up the mmu. */
+/* Claim the PAGE and set up the mmu.
+ * physical frame 얻기 + page와 frame간 연결 + 페이지 테이블에 매핑 추가 + swap_in */
 static bool vm_do_claim_page(struct page* page)
 {
     struct frame* frame = vm_get_frame();
@@ -261,6 +262,7 @@ static bool vm_do_claim_page(struct page* page)
     }
     else
     {
+        printf("vm_do_claim_page: install_page fail\n");
         return false;
     }
     /*********************** P3: added - end ***********************/
