@@ -28,7 +28,7 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/*************** P1 priority: 프로토타입 & 매크로 추가 - 시작 ***************/
+/*************** P1 priority: added ***************/
 static struct list sleep_list;	   // 블락된 쓰레드들을 위한 쓰레드
 static int64_t next_tick_to_awake; // 슬립 리스트의 쓰레드가 가진 가장 작은 틱
 static bool cmp_wakeup_tick(const struct list_elem *a,
@@ -36,7 +36,7 @@ static bool cmp_wakeup_tick(const struct list_elem *a,
 							void *aux);
 #define MIN(a, b) (((a) < (b)) ? (a) : (b)) // +++
 
-/*************** P1 priority: 프로토타입 & 매크로 추가 - 끝 ***************/
+/*************** P1 priority: added - end ***************/
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -116,10 +116,10 @@ void thread_init(void)
 	/* Init the global thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
-	list_init(&sleep_list);			// P1 alarm: 슬립리스트 초기화
-	/****************** P1 alarm: 추가 *************************/
-	next_tick_to_awake = INT64_MAX; // +++ 
-	/****************** P1 alarm: 추가 - 끝 *************************/
+	list_init(&sleep_list); // P1 alarm: 슬립리스트 초기화
+	/****************** P1 alarm: added *************************/
+	next_tick_to_awake = INT64_MAX; // +++
+	/****************** P1 alarm: added - end *************************/
 
 	list_init(&destruction_req);
 
@@ -208,23 +208,17 @@ tid_t thread_create(const char *name, int priority,
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
 
-	/********** P2 sys call: 초기화 코드 - 시작 **********/
+	/********** P2 sys call: added - 시작 **********/
 	// fdt 초기화
 	t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES); // zeroed 4KB 페이지 할당
 	if (t->fdt == NULL)
 		return TID_ERROR;
 	t->fdt[0] = 1;
 	t->fdt[1] = 2;
-	t->next_fd = 2; // +++
+	t->next_fd = 2;
+	t->parent = thread_current();
 
-	/********** P2 sys call: 초기화 코드 - 끝 **********/
-
-	/********** P2 sys call: 초기화 코드 - 시작 **********/
-	struct thread *curr = thread_current();
-	list_push_back(&curr->child_list, &t->child_elem);
-	// t->parent_process = thread_current(); // 부모 가리키는 포인터 추가
-	// list_push_back(&t->parent_process->child_list, &t->child_elem); // 자식 리스트에 추가 (커널 패닉 남, outside elem assert, 오버 플로우 때문?)
-	/********** P2 sys call: 초기화 코드 - 끝 **********/
+	/********** P2 sys call: added - 끝 **********/
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
@@ -237,13 +231,15 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	add_child(thread_current(), tid); // P2 added for wait
+
 	/* Add to run queue. */
 	thread_unblock(t);
 
-	/********** P1 priority: 추가 코드 - 시작 **********/
+	/********** P1 priority: added **********/
 	test_max_priority(); // P1 priority: 방금 만든 쓰레드와 러닝 스레드 비교 위해
 
-	/********** P1 priority: 추가 코드 - 끝 **********/
+	/********** P1 priority: added - end **********/
 
 	return tid;
 }
@@ -465,21 +461,19 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 
-	/***************** P1 donation: 초기화 추가*****************/
+	/***************** P1 donation: added *****************/
 	t->origin_priority = priority;
 	t->lock_address = NULL;
 	list_init(&t->multiple_donation);
-	/***************** P1 donation: 초기화 추가 - 끝 *****************/
+	/***************** P1 donation: added - end *****************/
 
-	/***************** P2 sys call: 초기화 추가*************************/
-	list_init(&t->child_list);		 // 자식 리스트 초기화
+	/***************** P2 sys call: added *************************/
 	sema_init(&t->sema_for_wait, 0); // `wait()`을 위한 세마포어 초기화
 	sema_init(&t->sema_for_fork, 0); // `fork()`을 위한 세마포어 초기화
-	sema_init(&t->sema_for_free, 0); // +++ `wait()`을 위한 세마포어 초기화
-	t->exit_status = 0; 
-	t->running_f = NULL; // +++
+	t->running_f = NULL;			 // +++
+	list_init(&t->child_info_list);
 
-	/***************** P2 sys call: 초기화 추가 - 끝*****************/
+	/***************** P2 sys call: added - end *****************/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -613,7 +607,7 @@ do_schedule(int status)
 		palloc_free_page(victim);
 	}
 	thread_current()->status = status;
-	schedule(); // 문맥 전환
+	schedule();
 }
 
 // 다음 스케줄링 실행
@@ -672,8 +666,7 @@ allocate_tid(void)
 	return tid;
 }
 
-
-/*************** P1 priority: 추가한 함수 - 시작 ***************/
+/*************** P1 priority: added ***************/
 // P1 alarm: 정렬을 위한 리스트 원소의 wakeup_tick값을 비교하기
 static bool cmp_wakeup_tick(const struct list_elem *a,
 							const struct list_elem *b,
@@ -687,7 +680,6 @@ static bool cmp_wakeup_tick(const struct list_elem *a,
 // P1 alarm: 주어진 ticks를 global tick으로 저장하기
 void update_next_tick_to_awake(int64_t ticks)
 {
-	// next_tick_to_awake = ticks;
 	next_tick_to_awake = MIN(next_tick_to_awake, ticks);
 }
 
@@ -714,12 +706,12 @@ void thread_sleep(int64_t ticks)
 	// P1 alarm: 쓰레드가 정렬된 순서로 리스트 안에 위치하도록
 	list_insert_ordered(&sleep_list, &cur->elem, cmp_wakeup_tick, NULL);
 
-	// ###IMPR### P1: 최소 wakeup_tick 찾기
+	// P1: 최소 wakeup_tick 찾기
 	struct list_elem *e = list_begin(&sleep_list);
 	struct thread *t = list_entry(e, struct thread, elem);
 	update_next_tick_to_awake(t->wakeup_tick);
 
-	thread_block(); // block 상태로 변경
+	thread_block();
 
 	intr_set_level(old_level); // 인터럽트 on
 
@@ -736,31 +728,8 @@ void thread_sleep(int64_t ticks)
 void thread_wakeup(int64_t ticks)
 {
 
-	// // -- 내 코드 --------------------------------------
-	// struct list_elem *e = list_begin(&sleep_list);
-
-	// while (e != list_end(&sleep_list)) // 슬립 리스트의 마지막 원소에 도달할때까지
-	// {
-	// 	struct thread *t = list_entry(e, struct thread, elem);
-
-	// 	if (t->wakeup_tick <= ticks) // 스레드가 일어날 시간이 되었는지 확인
-	// 	{
-	// 		e = list_remove(e); // sleep list 에서 제거
-	// 		thread_unblock(t);	// 스레드 unblock
-	// 	}
-	// 	else // 깨울 시간이 되지 않은 쓰레드 발견되면 최소 틱으로 저장하고 break
-	// 	// 괄호 때문에 에러 났었음
-	// 	{
-	// 		update_next_tick_to_awake(t->wakeup_tick);
-	// 		break;
-	// 	}
-	// }
-	// // -- 내 코드 --------------------------------------
-
-	// next_tick_to_awake = INT64_MAX;
 	struct list_elem *target; //= list_begin (&sleep_list);
 
-	// while (target != list_end (&sleep_list)) {
 	for (target = list_begin(&sleep_list); target != list_end(&sleep_list);)
 	{
 		struct thread *thread_pt = list_entry(target, struct thread, elem); /*list_entry() : Converts pointer to list element LIST_ELEM into a pointer to the structure that LIST_ELEM is embedded inside.*/
@@ -799,19 +768,10 @@ bool cmp_priority(const struct list_elem *a,
 // P1 Priority: 러닝 스레드와 레디 리스트 첫 스레드의 우선순위와 비교 → 스케줄링
 void test_max_priority(void)
 {
-	/* =========================== 수정코드 시작 - OK ===================================== */
 	// 슬립 리스트가 비어 있지 않고,
 	// 현재의 스레드의 우선순위 < 슬립 리스트의 첫번째 원소의 우선순위
 	// 인터럽트 처리 중이 아닐 때 (!intr_context())
 	// 위의 조건을 모두 만족할 때 thread_yield();
-
-	// 수정한 거
-	// ==cmp priority를 쓸건지, 직접 비교할건지? == -> 직접 비교로 바꿔서 에러 해결함(아래4번)
-	// 1. cur 을 thread_current로 바로 받음 (중간에 현재 쓰레드 바뀔까봐 -> 상관 없었다)★
-	// 2. 리스트 엠티 확인
-	// 3. 레디리스트의 첫째를 변수로 저장 안하고 바로 받음 (중간에 레디 리스트 첫째가 바뀔까봐 -> 상관 없었따)★
-	// 4. cmp_priority 함수 사용 안함 (함수로 넘겨주면서 바뀌거나, 등호 때문인듯)★★★ 이놈이 원인
-	// 5. begin -> front로 바꿔 써봄 (차이 없었다)
 
 	struct thread *cur = thread_current();
 	struct list_elem *ready_begin = list_begin(&ready_list);
@@ -826,7 +786,6 @@ void test_max_priority(void)
 		return;
 
 	thread_yield();
-	/* =========================== 수정코드 끝 ===================================== */
 }
 
 // P1 Priority: 도네이션을 고려하여 우선순위 지정
@@ -836,24 +795,71 @@ void thread_set_priority(int new_priority)
 	refresh_priority();
 	test_max_priority();
 }
+/*************** P1 priority: added - end ***************/
 
-/********* P2 syscall: 추가한 함수 - 시작 *********/
+/********* P2 syscall: added *********/
 // 자식 리스트를 순회하며 tid가 pid인 스레드 반환
-struct thread *get_child(int pid)
+void add_child(struct thread *parent, tid_t child_tid)
 {
-	struct thread *current = thread_current();
-	struct list *child_list = &current->child_list;
+	struct child_info_t *info = (struct child_info_t *)malloc(sizeof(struct child_info_t));
+	info->tid = child_tid;
+	sema_init(&info->sema_for_wait, 0);
+	list_push_back(&parent->child_info_list, &info->elem);
+}
+
+void set_exit_status(struct thread *parent, tid_t child_tid, int exit_status)
+{
 	struct list_elem *e;
-	for (e = list_begin(child_list);
-		 e != list_end(child_list);
-		 e = list_next(e))
+	for (e = list_begin(&parent->child_info_list); e != list_end(&parent->child_info_list); e = list_next(e))
 	{
-		struct thread *t = list_entry(e, struct thread, child_elem);
-		if (t->tid == pid)
+		struct child_info_t *info = list_entry(e, struct child_info_t, elem);
+		if (info->tid == child_tid)
 		{
-			return t;
+			info->exit_status = exit_status;
 		}
 	}
+}
+
+int get_exit_status(struct thread *parent, tid_t child_tid)
+{
+	struct list_elem *e;
+	for (e = list_begin(&parent->child_info_list); e != list_end(&parent->child_info_list); e = list_next(e))
+	{
+		struct child_info_t *info = list_entry(e, struct child_info_t, elem);
+		if (info->tid == child_tid)
+		{
+			return info->exit_status;
+		}
+	}
+
+	return 0;
+}
+
+struct child_info_t *get_child_info(struct thread *parent, tid_t child_tid)
+{
+	struct list_elem *e;
+	for (e = list_begin(&parent->child_info_list); e != list_end(&parent->child_info_list); e = list_next(e))
+	{
+		struct child_info_t *info = list_entry(e, struct child_info_t, elem);
+		if (info->tid == child_tid)
+		{
+			return info;
+		}
+	}
+
 	return NULL;
 }
-/********* P2 syscall: 추가한 함수 - 끝 *********/
+
+void delete_child(struct thread *parent, tid_t child_tid)
+{
+	struct list_elem *e;
+	for (e = list_begin(&parent->child_info_list); e != list_end(&parent->child_info_list); e = list_next(e))
+	{
+		struct child_info_t *info = list_entry(e, struct child_info_t, elem);
+		if (info->tid == child_tid)
+		{
+			list_remove(e);
+		}
+	}
+}
+/********* P2 syscall: added - end *********/

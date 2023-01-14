@@ -5,11 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
-
-/*************** P2 sys call: 헤더 파일 추가 - 시작 ***************/
-#include "threads/synch.h" // thread 구조체의 세마포어 필드를 위함
-
-/*************** P2 sys call: 헤더 파일 추가 - 끝 ***************/
+/*************** P2 sys call: added ***************/
+#include "threads/synch.h"
+/*************** P2 sys call: added - end ***************/
 
 // #ifdef VM
 #include "vm/vm.h"
@@ -34,11 +32,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63	   /* Highest priority. */
 
-/*************** P2 sys call: 매크로 추가 ***************/
+/*************** P2 sys call: added ***************/
 #define FDT_PAGES 3
 #define OPEN_MAX (FDT_PAGES * (1 << 9)) // fdt의 최대 fd 값
 
-/*************** P2 sys call: 매크로 추가 - 끝 ***************/
+/*************** P2 sys call: added - end ***************/
 
 /* A kernel thread or user process.
  *
@@ -106,42 +104,35 @@ struct thread
 	int priority;			   /* Priority. */
 
 	/****************** P1: added ******************/
-	int64_t wakeup_tick;					 // P1 alarm: tick till wake up
-	int origin_priority;					 // P1 donation: 원래의 우선순위 값
-	struct lock *lock_address;				 // P1 donation: 락 주소
-	struct list multiple_donation;			 // P1 donation
-	struct list_elem multiple_donation_elem; // P1 donation
+	int64_t wakeup_tick;					 // tick till wake up
+	int origin_priority;					 // 원래의 우선순위 값
+	struct lock *lock_address;				 // 락 주소
+	struct list multiple_donation;			 
+	struct list_elem multiple_donation_elem; 
 	/****************** P1: added - end ******************/
 
 	/****************** P2: added ******************/
-	// struct thread *parent_process;	// Pointer to parent process
-	struct list child_list;			// Pointers to the children list
-	struct list_elem child_elem;	// Pointers to the children list-elem
-	struct semaphore sema_for_wait; // `wait()`을 위한 세마포어 (구조체 불러오기 어떻게?)
-	struct semaphore sema_for_fork; // `fork()`을 위한 세마포어 (구조체 불러오기 어떻게?)
-	struct semaphore sema_for_free; // +++ 자식의 exit 후 부모를 다시 자유롭게 해줌
-	int exit_status;				// 스레드의 종료 상태를 나타냄
-	struct file **fdt;				// fdt를 가리키는 포인터 (구조체 불러오기 어떻게?)
+	struct semaphore sema_for_wait; // `wait()`을 위한 세마포어
+	struct semaphore sema_for_fork; // `fork()`을 위한 세마포어
+	struct file **fdt;				// fdt를 가리키는 포인터 
 	struct intr_frame parent_if;	// +++ 부모의 tf 값 (fork)
 	struct file *running_f;			// +++ 실행 중인 파일
 	int next_fd;
+	struct thread *parent;
+	struct list child_info_list;
 	/****************** P2: added - end ******************/
 
-
-	
-	
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
-	
 
-// #ifdef USERPROG
+	// #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
-// #endif
-// #ifdef VM
+	// #endif
+	// #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
-// #endif
+	// #endif
 
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
@@ -182,7 +173,7 @@ int thread_get_load_avg(void);
 
 void do_iret(struct intr_frame *tf);
 
-/****************** P1 priority: 프로토타입 추가 *************************/
+/****************** P1 priority: added *************************/
 void thread_sleep(int64_t ticks);
 void thread_wakeup(int64_t ticks);
 void update_next_tick_to_awake(int64_t ticks);
@@ -191,11 +182,23 @@ bool cmp_priority(const struct list_elem *a,
 				  const struct list_elem *b,
 				  void *aux);
 void test_max_priority(void);
-/****************** P1 priority: 프로토타입 추가 - 끝 *************************/
 
-/*************** P2 sys call: 프로토타입 추가 - 시작 ***************/
-struct thread *get_child (tid_t child_tid); // tid로 자식 검색
+/****************** P1 priority: added - end *************************/
 
-/*************** P2 sys call: 프로토타입 추가 - 끝 ***************/
+/*************** P2 sys call: added ***************/
+struct child_info_t
+{
+	tid_t tid;
+	int exit_status;
+	struct semaphore sema_for_wait;
+	struct list_elem elem;
+};
+void add_child(struct thread *parent, tid_t child_tid);
+void set_exit_status(struct thread *parent, tid_t child_tid, int exit_status);
+int get_exit_status(struct thread *parent, tid_t child_tid);
+struct child_info_t *get_child_info(struct thread *parent, tid_t child_tid);
+void delete_child(struct thread *parent, tid_t child_tid);
+
+/*************** P2 sys call: added - 끝 ***************/
 
 #endif /* threads/thread.h */
