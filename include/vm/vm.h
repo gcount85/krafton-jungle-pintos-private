@@ -1,9 +1,9 @@
 #ifndef VM_VM_H
 #define VM_VM_H
-#include <stdbool.h>
 #include "threads/palloc.h"
+#include <stdbool.h>
 /************* P3: added headers *************/
-#include "lib/kernel/hash.h"
+#include "include/lib/kernel/hash.h"
 /********** P3: added headers - end **********/
 
 enum vm_type
@@ -161,6 +161,7 @@ enum vm_type page_get_type(struct page* page);
 bool page_less(const struct hash_elem* a_, const struct hash_elem* b_, void* aux UNUSED);
 unsigned page_hash(const struct hash_elem* p_, void* aux UNUSED);
 unsigned frame_hash(const struct hash_elem* f_, void* aux UNUSED);
+bool frame_less(const struct hash_elem* a_, const struct hash_elem* b_, void* aux UNUSED);
 struct page* page_lookup(const void* va, struct supplemental_page_table* spt);
 /******************** P3: added - end ********************/
 
