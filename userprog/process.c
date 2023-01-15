@@ -776,7 +776,7 @@ static bool lazy_load_segment(struct page* page, struct file_info* file_info)
 
     file_seek(file, offset);
 
-    /* Get a page of memory. */
+    /* Fetch a page of memory. */
     uint8_t* kpage = page->frame;
     if (kpage == NULL)
     {
@@ -849,12 +849,23 @@ static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t 
 static bool setup_stack(struct intr_frame* if_)
 {
     bool success = false;
-    void* stack_bottom = (void*)(((uint8_t*)USER_STACK) - PGSIZE);
+    void* stack_bottom = (void*)(((uint8_t*)USER_STACK) - PGSIZE); // == va
 
+    /******************* P3: added *******************/
     /* TODO: Map the stack on stack_bottom and claim the page immediately.
      * TODO: If success, set the rsp accordingly.
      * TODO: You should mark the page is stack. */
     /* TODO: Your code goes here */
+
+    if (vm_claim_page(stack_bottom))
+    {
+        struct page* stack_page = spt_find_page(&thread_current()->spt, stack_bottom);
+        stack_page->vm_marker = VM_MARKER_0_STACK;
+        if_->rsp = USER_STACK; // 스택 포인터 셋업
+        success = true;
+    }
+
+    /******************* P3: added - end *******************/
 
     return success;
 }
@@ -897,10 +908,9 @@ void stack_arguments(int argc, char** argv, struct intr_frame* if_)
         else
             memcpy(if_->rsp, &argv_addr[i], sizeof(char**));
     }
-    /* Set %rdi to argc */
-    if_->R.rdi = argc;
-    /* Point %rsi to the address of argv[0] */
-    if_->R.rsi = if_->rsp;
+
+    if_->R.rdi = argc;     /* Set %rdi to argc */
+    if_->R.rsi = if_->rsp; /* Point %rsi to the address of argv[0] */
 
     /* Return Address */
     if_->rsp -= 8;

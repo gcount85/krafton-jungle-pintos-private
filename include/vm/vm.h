@@ -21,7 +21,7 @@ enum vm_type
 
     /* Auxillary bit flag marker for store information. You can add more
      * markers, until the value is fit in the int. */
-    VM_MARKER_0 = (1 << 3),
+    VM_MARKER_0_STACK = (1 << 3), // for stack pages
     VM_MARKER_1 = (1 << 4),
 
     /* DO NOT EXCEED THIS VALUE. */
@@ -67,6 +67,7 @@ struct page
     // 데이터의 위치 (frame, disk, swap), 상응하는 커널 가상 주소를 담은 포인터(이건 frame에?)
     // active or inactive (present, or not?)
 
+    enum vm_type vm_marker;
     bool writable;  /* True일 경우 해당 주소에 write 가능
                      False일 경우 해당 주소에 write 불가능 */
     bool is_loaded; /* 물리메모리의 탑재 여부를 알려주는 플래그 */
