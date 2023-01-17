@@ -44,7 +44,6 @@ struct hash_elem
  * ex: hash_entry (h, struct thread, h_elem) → h가 포함 된 struct thread의 주소
  *
  *
- *
  * */
 #define hash_entry(HASH_ELEM, STRUCT, MEMBER) ((STRUCT*)((uint8_t*)&(HASH_ELEM)->list_elem - offsetof(STRUCT, MEMBER.list_elem)))
 

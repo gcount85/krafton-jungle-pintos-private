@@ -5,6 +5,7 @@
 #include "vm/inspect.h"
 /****************** P3: added ******************/
 #include "userprog/process.h"
+#include "include/threads/vaddr.h"
 /****************** P3: added ******************/
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
@@ -21,7 +22,8 @@ void vm_init(void)
     /* TODO: Your code goes here. */
 
     /*********************** P3: added ***********************/
-    hash_init(&frame_table, frame_hash, frame_less, NULL); // frame hash, frame less 만들기
+    hash_init(&frame_table, frame_hash, frame_less,
+        NULL); // frame hash, frame less 만들기
 
     /*********************** P3: added - end ***********************/
 }
@@ -120,7 +122,7 @@ bool spt_insert_page(struct supplemental_page_table* spt UNUSED, struct page* pa
     int succ = false;
 
     /* TODO: Fill this function. */
-    if (!(hash_insert(&spt, &page->hash_elem))) // 삽입 됐으면 NULL, 아니면 page->hash_elem
+    if (!(hash_insert(&spt, &page->hash_elem))) // 삽입시 NULL, otherwise page->hash_elem
     {
         succ = true;
     }
@@ -167,7 +169,8 @@ static struct frame* vm_get_frame(void)
     frame = (struct frame*)calloc(1, sizeof(struct frame));
     if (!(frame))
     {
-        PANIC("todo; vm_get_frame에서 frame 널이다"); // 만약 할당 실패시 임시방편; todo
+        PANIC("todo; vm_get_frame에서 frame 널이다"); // 만약 할당 실패시
+                                                      // 임시방편; todo
     }
 
     /* frame 구조체 필드 초기화 */
@@ -185,8 +188,6 @@ static struct frame* vm_get_frame(void)
     }
 
     frame->page = NULL;
-    // frame->hash_elem.list_ele-m.next = NULL;
-    // frame->hash_elem.list_elem.prev = NULL;
     /*********************** P3: added - end ***********************/
 
     ASSERT(frame != NULL);
@@ -195,24 +196,43 @@ static struct frame* vm_get_frame(void)
 }
 
 /* Growing the stack. */
-static void vm_stack_growth(void* addr UNUSED)
-{
-}
+static void vm_stack_growth(void* addr UNUSED) {}
 
 /* Handle the fault on write_protected page */
-static bool vm_handle_wp(struct page* page UNUSED)
-{
-}
+static bool vm_handle_wp(struct page* page UNUSED) {}
 
 /* Return true on success */
+/* bool not_present;    True: not-present page, false: writing read-only page.
+ * bool write;          True: access was write, false: access was read.
+ * bool user;           True: access by user, false: access by kernel.
+ * void* fault_addr;    Fault address. */
 bool vm_try_handle_fault(struct intr_frame* f UNUSED, void* addr UNUSED, bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
     struct supplemental_page_table* spt UNUSED = &thread_current()->spt;
     struct page* page = NULL;
+
+    /*********************** P3: added ***********************/
     /* TODO: Validate the fault */
+    if (is_kernel_vaddr(addr))
+    {
+        return false;
+    }
+
+    if (!(page = spt_find_page(spt, addr))) // SPT에 존재하지 않는 페이지인 경우
+    {
+        return false;
+    }
+
+    if ((page->writable == 0) && (write == true)) // read-only 파일에 쓰기 접근인 경우
+    {
+        return false;
+    }
 
     /* TODO: Your code goes here */
+    struct page* copy_page = (struct page*)calloc(1, sizeof(struct page));
+    copy_page = page;
 
+    /*********************** P3: added ***********************/
     return vm_do_claim_page(page);
 }
 
@@ -245,7 +265,8 @@ bool vm_claim_page(void* va UNUSED)
 }
 
 /* Claim the PAGE and set up the mmu.
- * physical frame 얻기 + page와 frame간 연결 + 페이지 테이블에 매핑 추가 + swap_in */
+ * physical frame 얻기 + page와 frame간 연결 + 페이지 테이블에 매핑 추가 +
+ * swap_in */
 static bool vm_do_claim_page(struct page* page)
 {
     struct frame* frame = vm_get_frame();
@@ -284,9 +305,7 @@ void supplemental_page_table_init(struct supplemental_page_table* spt UNUSED)
 }
 
 /* Copy supplemental page table from src to dst */
-bool supplemental_page_table_copy(struct supplemental_page_table* dst UNUSED, struct supplemental_page_table* src UNUSED)
-{
-}
+bool supplemental_page_table_copy(struct supplemental_page_table* dst UNUSED, struct supplemental_page_table* src UNUSED) {}
 
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table* spt UNUSED)

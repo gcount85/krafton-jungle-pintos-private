@@ -4,64 +4,52 @@
 #include "devices/disk.h"
 
 /* DO NOT MODIFY BELOW LINE */
-static struct disk *swap_disk;
-static bool anon_swap_in(struct page *page, void *kva);
-static bool anon_swap_out(struct page *page);
-static void anon_destroy(struct page *page);
+static struct disk* swap_disk;
+static bool anon_swap_in(struct page* page, void* kva);
+static bool anon_swap_out(struct page* page);
+static void anon_destroy(struct page* page);
 
 /* DO NOT MODIFY this struct
  * anon page의 페이지 연산 구조체 */
 static const struct page_operations anon_ops = {
-	.swap_in = anon_swap_in,
-	.swap_out = anon_swap_out,
-	.destroy = anon_destroy,
-	.type = VM_ANON,
+    .swap_in = anon_swap_in,
+    .swap_out = anon_swap_out,
+    .destroy = anon_destroy,
+    .type = VM_ANON,
 };
 
 /* Initialize the data for anonymous pages */
 void vm_anon_init(void)
 {
-	/* TODO: Set up the swap_disk. */
-	swap_disk = NULL;
+    /* TODO: Set up the swap_disk. */
+    swap_disk = NULL;
 }
 
 /* Initialize the file mapping */
-bool anon_initializer(struct page *page, enum vm_type type, void *kva)
+bool anon_initializer(struct page* page, enum vm_type type, void* kva)
 {
-	/* Set up the handler */
-	page->operations = &anon_ops;
+    /* Set up the handler */
+    page->operations = &anon_ops;
 
-	struct anon_page *anon_page = &page->anon;
+    struct anon_page* anon_page = &page->anon;
 
-	/******************* P3: added *******************/
-	if (!anon_page)
-	{
-		return false;
-	}
-	else
-	{
-		return true;
-	}
-	/******************* P3: added - end *******************/
+    /******************* P3: added *******************/
+    if (!anon_page)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+    /******************* P3: added - end *******************/
 }
 
 /* Swap in the page by reading contents from the swap disk. */
-static bool
-anon_swap_in(struct page *page, void *kva)
-{
-	struct anon_page *anon_page = &page->anon;
-}
+static bool anon_swap_in(struct page* page, void* kva) { struct anon_page* anon_page = &page->anon; }
 
 /* Swap out the page by writing contents to the swap disk. */
-static bool
-anon_swap_out(struct page *page)
-{
-	struct anon_page *anon_page = &page->anon;
-}
+static bool anon_swap_out(struct page* page) { struct anon_page* anon_page = &page->anon; }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
-static void
-anon_destroy(struct page *page)
-{
-	struct anon_page *anon_page = &page->anon;
-}
+static void anon_destroy(struct page* page) { struct anon_page* anon_page = &page->anon; }

@@ -58,10 +58,7 @@ void exception_init(void)
 }
 
 /* Prints exception statistics. */
-void exception_print_stats(void)
-{
-    printf("Exception: %lld page faults\n", page_fault_cnt);
-}
+void exception_print_stats(void) { printf("Exception: %lld page faults\n", page_fault_cnt); }
 
 /* Handler for an exception (probably) caused by a user process. */
 static void kill(struct intr_frame* f)
@@ -130,16 +127,19 @@ static void page_fault(struct intr_frame* f)
        be assured of reading CR2 before it changed). */
     intr_enable();
 
-    /* Determine cause. */
+    /* Determine cause.
+     * error code에 대한 정보는 → exception.h */
     not_present = (f->error_code & PF_P) == 0;
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
-#ifdef VM
-    /* For project 3 and later. */
+    // #ifdef VM
+    /* For project 3 and later.
+     * 해당 함수로 fault 핸들이 성공하면 종료
+     * invalid한 접근이면 exit(-1)로 프로세스 종료 */
     if (vm_try_handle_fault(f, fault_addr, user, write, not_present))
         return;
-#endif
+    // #endif
 
     /* Count page faults. */
     page_fault_cnt++;

@@ -166,10 +166,7 @@ void thread_tick(void)
 }
 
 /* Prints thread statistics. */
-void thread_print_stats(void)
-{
-    printf("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n", idle_ticks, kernel_ticks, user_ticks);
-}
+void thread_print_stats(void) { printf("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n", idle_ticks, kernel_ticks, user_ticks); }
 
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
@@ -280,10 +277,7 @@ void thread_unblock(struct thread* t)
 }
 
 /* Returns the name of the running thread. */
-const char* thread_name(void)
-{
-    return thread_current()->name;
-}
+const char* thread_name(void) { return thread_current()->name; }
 
 /* Returns the running thread 포인터.
    This is running_thread() plus a couple of sanity checks.
@@ -304,10 +298,7 @@ struct thread* thread_current(void)
 }
 
 /* Returns the running thread's tid. */
-tid_t thread_tid(void)
-{
-    return thread_current()->tid;
-}
+tid_t thread_tid(void) { return thread_current()->tid; }
 
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
@@ -352,16 +343,10 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 
 /* Returns the current thread's priority. */
-int thread_get_priority(void)
-{
-    return thread_current()->priority;
-}
+int thread_get_priority(void) { return thread_current()->priority; }
 
 /* Sets the current thread's nice value to NICE. */
-void thread_set_nice(int nice UNUSED)
-{
-    /* TODO: Your implementation goes here */
-}
+void thread_set_nice(int nice UNUSED) { /* TODO: Your implementation goes here */ }
 
 /* Returns the current thread's nice value. */
 int thread_get_nice(void)
@@ -656,16 +641,10 @@ static bool cmp_wakeup_tick(const struct list_elem* a, const struct list_elem* b
 }
 
 // P1 alarm: 주어진 ticks를 global tick으로 저장하기
-void update_next_tick_to_awake(int64_t ticks)
-{
-    next_tick_to_awake = MIN(next_tick_to_awake, ticks);
-}
+void update_next_tick_to_awake(int64_t ticks) { next_tick_to_awake = MIN(next_tick_to_awake, ticks); }
 
 // P1 alarm: global tick 반환하기
-int64_t get_next_tick_to_awake(void)
-{
-    return next_tick_to_awake;
-}
+int64_t get_next_tick_to_awake(void) { return next_tick_to_awake; }
 
 // P1 alarm: 호출자 스레드의 상태를 블락으로 바꿈, 그리고 슬립 큐로 넣음
 // 참고: https://poalim.tistory.com/28

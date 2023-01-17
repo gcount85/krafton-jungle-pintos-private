@@ -34,10 +34,7 @@ static void initd(void* f_name);
 static void __do_fork(void*);
 
 /* General process initializer for initd and other process. */
-static void process_init(void)
-{
-    struct thread* current = thread_current();
-}
+static void process_init(void) { struct thread* current = thread_current(); }
 
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
  * The new thread may be scheduled (and may even exit)
@@ -103,7 +100,8 @@ tid_t process_fork(const char* name, struct intr_frame* if_ UNUSED)
         return TID_ERROR;
     }
 
-    sema_down(&parent->sema_for_fork); // sema up이 do fork에서 이루어질때까지 다음 수행은 이루어지지 않음
+    sema_down(&parent->sema_for_fork); // sema up이 do fork에서 이루어질때까지
+                                       // 다음 수행은 이루어지지 않음
     if (get_exit_status(parent, tid) == -1)
     {
         return TID_ERROR;
@@ -305,7 +303,8 @@ int process_wait(tid_t child_tid UNUSED)
     {
         return -1;
     }
-    sema_down(&info->sema_for_wait); // 이 시점에서 자식 프로세스 종료될 때까지 호출자 블락, child가 exit을 부를 때 sema_up()
+    sema_down(&info->sema_for_wait); // 이 시점에서 자식 프로세스 종료될 때까지 호출자
+                                     // 블락, child가 exit을 부를 때 sema_up()
     int child_exit_status = get_exit_status(curr, child_tid);
     delete_child(curr, child_tid);
 
@@ -332,10 +331,6 @@ void process_exit(void)
     file_close(cur->running_f);
     struct child_info_t* info = get_child_info(cur->parent, cur->tid);
     sema_up(&info->sema_for_wait); // 블락 되어있던 wait 호출자 프로세스가 깨어남
-
-    /*************** P3: added ***************/
-    supplemental_page_table_kill(&cur->spt);
-    /*************** P3: added - end ***************/
 
     process_cleanup();
 }
@@ -453,7 +448,8 @@ static bool load(const char* file_name, struct intr_frame* if_)
     bool success = false;
     int i;
 
-    // **************** P2 arg passing: 파일명 파싱 *************************** //
+    // **************** P2 arg passing: 파일명 파싱 ***************************
+    // //
     char *token, *save_ptr;
     char* argv[64]; // char형 포인터는 string으로 받는다
     int argc = 0;
@@ -463,7 +459,8 @@ static bool load(const char* file_name, struct intr_frame* if_)
         argv[argc] = token;
         argc++;
     }
-    // **************** P2 arg passing: 파일명 파싱 - 끝 ************************ //
+    // **************** P2 arg passing: 파일명 파싱 - 끝
+    // ************************ //
 
     /* 메모리 할당; Allocate and activate page directory. */
     t->pml4 = pml4_create();
@@ -872,7 +869,8 @@ static bool setup_stack(struct intr_frame* if_)
 void stack_arguments(int argc, char** argv, struct intr_frame* if_)
 {
     // argv: 프로그램 이름과 인자가 저장되어 있는 메모리 공간,
-    // count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소(**rsp는 스택에 있는 데이터)
+    // count: 인자의 개수, rsp: 스택 포인터를 가리키는 주소(**rsp는 스택에 있는
+    // 데이터)
     // === push 하면서 여유 공간 있는지 확인 ?
     // 혜지코드
     char* argv_addr[128]; // array that saves addresses of arguments

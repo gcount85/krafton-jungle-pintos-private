@@ -1,7 +1,8 @@
 ---
+# configuration 설명: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
 Language:        Cpp
 AccessModifierOffset: -4
-AlignAfterOpenBracket: DontAlign
+AlignAfterOpenBracket: DontAlign # Align / DontAlign
 AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: All
 BasedOnStyle: LLVM
@@ -16,7 +17,7 @@ BraceWrapping:
   AfterUnion: true
   BeforeCatch: true
   BeforeElse: true
-ColumnLimit: 160
+ColumnLimit: 160 # 라인 글자 수 제한
 IndentCaseLabels: false
 IndentPPDirectives: None
 IndentWidth: 4
@@ -33,8 +34,6 @@ TabWidth: 4
 UseTab: Never
 BinPackParameters: false
 AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortFunctionsOnASingleLine: false
-AllowShortBlocksOnASingleLine: false
 SpacesBeforeTrailingComments: 1
 AllowShortIfStatementsOnASingleLine: false
 SortIncludes: false
