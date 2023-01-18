@@ -27,7 +27,13 @@ static const struct page_operations uninit_ops = {
  * uninit page 구조체 필드를 초기화하는 함수 */
 void uninit_new(struct page *page, void *va, vm_initializer *init, enum vm_type type, void *aux, bool (*initializer)(struct page *, enum vm_type, void *))
 {
+    // printf("---------------------------------uninit_new 들어왔음\n");
+
     ASSERT(page != NULL);
+    ASSERT(va != NULL);
+    ASSERT(init != NULL);
+    ASSERT(aux != NULL);
+    ASSERT(initializer != NULL);
 
     *page = (struct page){.operations = &uninit_ops,
                           .va = va,
@@ -44,6 +50,8 @@ void uninit_new(struct page *page, void *va, vm_initializer *init, enum vm_type 
  * uninit page를 anon, file, page_cache 중 하나로 바꿈! */
 static bool uninit_initialize(struct page *page, void *kva)
 {
+    printf("uninit_initialize\n");
+
     struct uninit_page *uninit = &page->uninit;
 
     /* Fetch first, page_initialize may overwrite the values */

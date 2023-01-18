@@ -59,6 +59,9 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 {
 
     ASSERT(VM_TYPE(type) != VM_UNINIT);
+    // ASSERT(upage != NULL);
+    // ASSERT(init != NULL);
+    // ASSERT(file_info != NULL); // 잘 통과함
 
     struct supplemental_page_table *spt = &thread_current()->spt;
 
@@ -274,7 +277,6 @@ bool vm_claim_page(void *va UNUSED)
  * swap_in */
 static bool vm_do_claim_page(struct page *page)
 {
-
     struct frame *frame = vm_get_frame();
 
     /* Set links */
@@ -285,11 +287,11 @@ static bool vm_do_claim_page(struct page *page)
     /* TODO: Insert page table entry to map page's VA to frame's PA. */
 
     // 기존에 이미 PTE에 존재 할 수도 있는 페이지 매핑 정보 삭제 (확인필요)
-    pml4_clear_page(&thread_current()->pml4, page->va);
+    // pml4_clear_page(&thread_current()->pml4, page->va);
 
     if ((install_page(page->va, frame->kva, page->writable)))
     {
-        printf("9999999999999999999999999999999999999999999999999999999\n");
+        // 여기까지는 들어옴
         return swap_in(page, frame->kva);
     }
     else
