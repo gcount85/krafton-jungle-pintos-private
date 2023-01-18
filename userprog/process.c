@@ -549,14 +549,18 @@ static bool load(const char *file_name, struct intr_frame *if_)
                 }
             }
             else
+            {
                 goto done;
+            }
             break;
         }
     }
 
     /* Set up stack. */
     if (!setup_stack(if_))
+    {
         goto done;
+    }
 
     /* Start address. */
     if_->rip = ehdr.e_entry;
@@ -828,6 +832,10 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t 
         /* TODO: Set up aux to pass information to the lazy_load_segment.
          * 페이지의 file, load_status, read_byts, zero_bytes, offset 필드 값? */
         struct file_info *file_info = (struct file_info *)calloc(1, sizeof(struct file_info));
+        if (file_info == NULL)
+        {
+            return false;
+        }
         file_info->file = file;
         file_info->file_offset = ofs;
         file_info->page_read_bytes = page_read_bytes;
@@ -839,6 +847,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t 
         {
             return false;
         }
+
         /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
@@ -850,6 +859,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t 
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */
 static bool setup_stack(struct intr_frame *if_)
 {
+
     bool success = false;
     void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE); // == va, 유저 어드레스 확인
 

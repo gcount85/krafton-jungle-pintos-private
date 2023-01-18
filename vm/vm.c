@@ -91,7 +91,6 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
         // new_page 구조체의 기타 필드 초기화 (위치 확인)
         new_page->writable = writable;
         new_page->is_loaded = 0;
-
         /* TODO: Insert the page into the spt. */
         if (!spt_insert_page(spt, new_page)) // 이때 hash_elem이 초기화 됨
         {
@@ -299,6 +298,8 @@ static bool vm_do_claim_page(struct page *page)
         printf("vm_do_claim_page: install_page fail\n");
         return false;
     }
+    printf("------------------vm_do_claim_page 함수 끝!\n");
+
     /*********************** P3: added - end ***********************/
 }
 

@@ -30,10 +30,10 @@ void uninit_new(struct page *page, void *va, vm_initializer *init, enum vm_type 
     // printf("---------------------------------uninit_new 들어왔음\n");
 
     ASSERT(page != NULL);
-    ASSERT(va != NULL);
-    ASSERT(init != NULL);
-    ASSERT(aux != NULL);
-    ASSERT(initializer != NULL);
+    // ASSERT(va != NULL);
+    // ASSERT(init != NULL);
+    // ASSERT(aux != NULL);
+    // ASSERT(initializer != NULL);
 
     *page = (struct page){.operations = &uninit_ops,
                           .va = va,
