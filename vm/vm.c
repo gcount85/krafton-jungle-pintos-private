@@ -6,6 +6,7 @@
 /****************** P3: added ******************/
 #include "userprog/process.h"
 #include "include/threads/vaddr.h"
+#include "include/threads/mmu.h"
 /****************** P3: added ******************/
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
@@ -22,8 +23,7 @@ void vm_init(void)
     /* TODO: Your code goes here. */
 
     /*********************** P3: added ***********************/
-    hash_init(&frame_table, frame_hash, frame_less,
-        NULL); // frame hash, frame less 만들기
+    hash_init(&frame_table, frame_hash, frame_less, NULL);
 
     /*********************** P3: added - end ***********************/
 }
@@ -196,10 +196,14 @@ static struct frame* vm_get_frame(void)
 }
 
 /* Growing the stack. */
-static void vm_stack_growth(void* addr UNUSED) {}
+static void vm_stack_growth(void* addr UNUSED)
+{
+}
 
 /* Handle the fault on write_protected page */
-static bool vm_handle_wp(struct page* page UNUSED) {}
+static bool vm_handle_wp(struct page* page UNUSED)
+{
+}
 
 /* Return true on success */
 /* bool not_present;    True: not-present page, false: writing read-only page.
@@ -229,8 +233,8 @@ bool vm_try_handle_fault(struct intr_frame* f UNUSED, void* addr UNUSED, bool us
     }
 
     /* TODO: Your code goes here */
-    struct page* copy_page = (struct page*)calloc(1, sizeof(struct page));
-    copy_page = page;
+
+    // hash_replace(&spt->spt_hash_table, &page->hash_elem);
 
     /*********************** P3: added ***********************/
     return vm_do_claim_page(page);
@@ -277,6 +281,9 @@ static bool vm_do_claim_page(struct page* page)
 
     /*********************** P3: added ***********************/
     /* TODO: Insert page table entry to map page's VA to frame's PA. */
+    // 기존에 이미 PTE에 존재 할 수도 있는 페이지 매핑 정보 삭제 (확인필요)
+    pml4_clear_page(&thread_current()->pml4, &page->va);
+
     if ((install_page(&page->va, &frame->kva, page->writable)))
     {
         return swap_in(page, frame->kva);
@@ -305,7 +312,9 @@ void supplemental_page_table_init(struct supplemental_page_table* spt UNUSED)
 }
 
 /* Copy supplemental page table from src to dst */
-bool supplemental_page_table_copy(struct supplemental_page_table* dst UNUSED, struct supplemental_page_table* src UNUSED) {}
+bool supplemental_page_table_copy(struct supplemental_page_table* dst UNUSED, struct supplemental_page_table* src UNUSED)
+{
+}
 
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table* spt UNUSED)

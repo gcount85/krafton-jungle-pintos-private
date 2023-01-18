@@ -58,7 +58,10 @@ void exception_init(void)
 }
 
 /* Prints exception statistics. */
-void exception_print_stats(void) { printf("Exception: %lld page faults\n", page_fault_cnt); }
+void exception_print_stats(void)
+{
+    printf("Exception: %lld page faults\n", page_fault_cnt);
+}
 
 /* Handler for an exception (probably) caused by a user process. */
 static void kill(struct intr_frame* f)
