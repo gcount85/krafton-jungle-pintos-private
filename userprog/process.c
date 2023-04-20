@@ -169,7 +169,7 @@ static bool duplicate_pte(uint64_t *pte, void *va, void *aux)
  * Hint) parent->tf does not hold the userland context of the process.
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
-static void __do_fork(void *aux)
+static void  __do_fork(void *aux)
 {
     struct intr_frame if_;                        // 부모로부터 복사된 값을 받을 자식의 if
     struct thread *parent = (struct thread *)aux; // 부모
@@ -232,9 +232,9 @@ static void __do_fork(void *aux)
         }
     }
     current->next_fd = parent->next_fd;
-    sema_up(&parent->sema_for_fork);
+    if_.R.rax = 0; // 성공의 의미로 0 반환 
+    sema_up(&parent->sema_for_fork); // 여기서 부모 깨우기! 
 
-    if_.R.rax = 0;
     /********* P2 syscall: added - 끝 *********/
 
     /* Finally, switch to the newly created process. */
@@ -243,7 +243,7 @@ static void __do_fork(void *aux)
 error:
     /********* P2 syscall: added - 시작 *********/
     set_exit_status(parent, current->tid, TID_ERROR);
-    sema_up(&parent->sema_for_fork);
+    sema_up(&parent->sema_for_fork); // 에러일 때도 깨워야 함 
     exit(TID_ERROR);
 
     /********* P2 syscall: added - 끝 *********/
